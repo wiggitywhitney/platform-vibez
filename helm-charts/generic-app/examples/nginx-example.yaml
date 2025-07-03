@@ -24,10 +24,7 @@ resources:
     cpu: 200m
     memory: 256Mi
 
-service:
-  enabled: true
-  type: ClusterIP
-  port: 80
+# NOTE: Service auto-created by platform (port matches container.port)
 
 ingress:
   enabled: true

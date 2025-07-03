@@ -1,57 +1,104 @@
 # Default values for generic-app
-# This is a YAML-formatted file.
-# Declare variables to be passed into your templates.
+# Platform-opinionated Helm chart with enforced guardrails and smart defaults
+# 
+# PLATFORM PHILOSOPHY:
+# - Enforce sensible defaults, reduce configuration surface
+# - Validate inputs with hard guardrails to prevent cluster damage
+# - Auto-calculate optimal values (e.g., 50% resource requests)
+# - Mandatory security and reliability features (health checks, HA)
 
-# Application configuration (optional)
+# =============================================================================
+# APPLICATION CONFIGURATION (Optional)
+# =============================================================================
 app:
   name: ""  # Override app name (uses release name if empty)
+            # Useful for decoupling chart name from actual app name
 
-# Image configuration
+# =============================================================================
+# IMAGE CONFIGURATION (Required with Validation)
+# =============================================================================
 image:
   repository: ""  # REQUIRED: Container image repository
-  tag: ""         # REQUIRED: Image tag/version
+                  # VALIDATION: Must not contain "latest" anywhere
+                  # VALIDATION: Cannot be empty (required field)
+  tag: ""         # REQUIRED: Image tag/version  
+                  # VALIDATION: Must not be "latest" or contain "latest"
+                  # VALIDATION: Cannot be empty (required field)
+                  # REASON: Prevents drift and ensures reproducible deployments
 
-# Container configuration
+# =============================================================================
+# CONTAINER CONFIGURATION
+# =============================================================================
 container:
-  port: 80
-  # Environment variables
+  port: 80        # SINGLE SOURCE OF TRUTH: Container port for the application
+                  # AUTO-SYNC: Service port automatically matches this value
+                  # AUTO-SYNC: Ingress port automatically matches this value
+                  # REASON: Eliminates port configuration drift and complexity
+                  # NOTE: No protocol field - K8s defaults to TCP
+  # Environment variables (optional)
   env: []
+  # Examples:
   # - name: ENV_VAR
   #   value: "value"
-  # - name: SECRET_VAR
-  #   valueFrom:
-  #     secretKeyRef:
-  #       name: my-secret
-  #       key: secret-key
+  # - name: API_URL
+  #   value: "https://api.example.com"
 
-# Health checks (mandatory)
+# =============================================================================
+# HEALTH CHECKS (Mandatory - Platform Enforced)
+# =============================================================================
 healthChecks:
-  path: "/"  # Health check endpoint path
+  path: "/"       # Health check endpoint path (e.g., "/health", "/api/health")
+                  # PLATFORM DECISION: Health checks are MANDATORY in all environments
+                  # PLATFORM DECISION: HTTP-only (no TCP/exec probes for consistency)
+                  # REASON: Prevents deployment of unhealthy applications
+                  # NOTE: Always creates both liveness and readiness probes
 
-# Resource configuration
+# =============================================================================
+# RESOURCE CONFIGURATION (Smart Defaults with Guardrails)
+# =============================================================================
 resources:
-  cpu: "500m"     # CPU limit (requests auto-set to 50%)
-  memory: "512Mi" # Memory limit (requests auto-set to 50%)
+  cpu: "500m"     # CPU limit - requests auto-calculated to 50% of this value
+                  # GUARDRAILS: Must be between 100m and 4000m (0.1-4 cores)
+                  # AUTO-CALC: Requests = limits * 0.5 (e.g., 500m → 250m requests)
+  memory: "512Mi" # Memory limit - requests auto-calculated to 50% of this value
+                  # GUARDRAILS: Must be between 128Mi and 8192Mi (8Gi)
+                  # GUARDRAILS: Must use Mi or Gi units only
+                  # AUTO-CALC: Requests = limits * 0.5 (e.g., 512Mi → 256Mi requests)
+                  # REASON: Enforces resource discipline, prevents resource starvation
 
-# Horizontal Pod Autoscaler
+# =============================================================================
+# HORIZONTAL POD AUTOSCALER (Opinionated with Guardrails)
+# =============================================================================
 autoscaling:
   enabled: false
-  minReplicas: 1
-  maxReplicas: 100
-  targetCPUUtilizationPercentage: 80
-  # targetMemoryUtilizationPercentage: 80
+  minReplicas: 2  # PLATFORM DECISION: HA by default (minimum 2 replicas)
+                  # GUARDRAILS: Must be between 1 and 10
+                  # REASON: Encourages high availability by default
+  maxReplicas: 5  # PLATFORM DECISION: Sensible default for most applications
+                  # GUARDRAILS: Must be between 2 and 20 (hard platform limit)
+                  # VALIDATION: Must be greater than minReplicas
+                  # REASON: Prevents runaway scaling that could consume cluster resources
+                  
+  # PLATFORM ENFORCED: CPU and Memory utilization targets hardcoded to 75%
+  # REASON: Removes configuration complexity, enforces consistent scaling behavior
+  # NOTE: No user configuration - scales at 75% CPU AND 75% memory utilization
 
-# Service configuration
-service:
-  enabled: true
-  port: 80
-  targetPort: http
-  # annotations: {}
+# =============================================================================
+# SERVICE CONFIGURATION (Always Created - Platform Enforced)
+# =============================================================================
+# PLATFORM DECISION: Service always created for cluster communication
+# REASON: 99% of applications need services for pod discovery and networking
+# AUTO-SYNC: Service port automatically matches container.port (no separate config)
+# AUTO-SYNC: Service targets container port via named port reference "http"
+# NOTE: Use ingress for external access, service handles internal cluster traffic
+# NOTE: No service.type field - K8s defaults to ClusterIP
 
-# Ingress configuration
+# =============================================================================
+# INGRESS CONFIGURATION
+# =============================================================================
 ingress:
-  enabled: false
-  className: ""
+  enabled: false  # Disabled by default - enable when external access needed
+  className: ""   # Ingress class (e.g., "nginx", "traefik")
   annotations: {}
     # kubernetes.io/ingress.class: nginx
     # kubernetes.io/tls-acme: "true"
@@ -65,11 +112,9 @@ ingress:
   #    hosts:
   #      - chart-example.local
 
-# Pod Security Context
 podSecurityContext:
   # fsGroup: 2000
 
-# Container Security Context
 securityContext:
   # capabilities:
   #   drop:
@@ -78,49 +123,54 @@ securityContext:
   # runAsNonRoot: true
   # runAsUser: 1000
 
-# Service Account
-serviceAccount:
-  # Specifies whether a service account should be created
-  create: true
-  # Annotations to add to the service account
-  annotations: {}
-  # The name of the service account to use.
-  # If not set and create is true, a name is generated using the fullname template
-  name: ""
+# =============================================================================
+# SECURITY CONTEXTS (Defaults Commented - K8s Handles)
+# =============================================================================
+# PLATFORM PHILOSOPHY: Don't hardcode K8s defaults in templates
+# These are available for customization but not enforced by default
 
-# Pod annotations
-podAnnotations: {}
+# =============================================================================
+# POD CONFIGURATION
+# =============================================================================
+podAnnotations: {} # Additional pod annotations
+podLabels: {}      # Additional pod labels
 
-# Pod labels
-podLabels: {}
+# =============================================================================
+# SCHEDULING (Advanced Configuration)
+# =============================================================================
+nodeSelector: {}   # Node selection constraints
+tolerations: []    # Pod tolerations
+affinity: {}       # Pod affinity/anti-affinity rules
 
-# Node selection
-nodeSelector: {}
 
-# Tolerations
-tolerations: []
 
-# Affinity
-affinity: {}
-
-# Persistent storage
-persistence:
-  enabled: false
-  # existingClaim: ""
-  storageClass: ""
-  size: 1Gi
-  mountPath: /data
-  annotations: {}
-
-# ConfigMap configuration
-configMap:
-  enabled: false
-  data: {}
-    # config.yaml: |
-    #   key: value
-
-# Secret configuration
-secret:
-  enabled: false
-  data: {}
-    # secret-key: base64-encoded-value 
+# =============================================================================
+# VALIDATION SUMMARY
+# =============================================================================
+# The following validations are enforced by this chart:
+#
+# IMAGE VALIDATION:
+# - No "latest" tags allowed anywhere in repository or tag
+# - Repository and tag cannot be empty
+#
+# RESOURCE VALIDATION:
+# - CPU: 100m to 4000m (0.1 to 4 cores)
+# - Memory: 128Mi to 8192Mi (8Gi), must use Mi/Gi units
+# - Requests auto-calculated to 50% of limits
+#
+# AUTOSCALING VALIDATION (when enabled):
+# - minReplicas: 1 to 10
+# - maxReplicas: 2 to 20
+# - maxReplicas must be > minReplicas
+# - CPU/Memory targets hardcoded to 75%
+#
+# PLATFORM ENFORCED FEATURES:
+# - HTTP health checks are mandatory
+# - Service always created (no toggle) with auto-synced ports
+# - HA encouraged with minReplicas: 2 default
+#
+# PORT AUTO-SYNCHRONIZATION:
+# - container.port is the single source of truth
+# - Service port automatically matches container.port
+# - Ingress port automatically matches container.port
+# - Eliminates port configuration drift and complexity 

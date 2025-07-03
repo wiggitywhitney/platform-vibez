@@ -54,16 +54,7 @@ app.kubernetes.io/name: {{ include "generic-app.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
-{{/*
-Create the name of the service account to use
-*/}}
-{{- define "generic-app.serviceAccountName" -}}
-{{- if .Values.serviceAccount.create }}
-{{- default (include "generic-app.fullname" .) .Values.serviceAccount.name }}
-{{- else }}
-{{- default "default" .Values.serviceAccount.name }}
-{{- end }}
-{{- end }}
+
 
 {{/*
 Generate the image name
@@ -136,5 +127,27 @@ Validate memory resource guardrails
   {{- end }}
 {{- else }}
   {{- fail "Error: Memory must be specified in Mi or Gi units" }}
+{{- end }}
+{{- end }}
+
+{{/*
+Validate autoscaling replica guardrails
+*/}}
+{{- define "generic-app.validateAutoscaling" -}}
+{{- if .Values.autoscaling.enabled }}
+  {{- $minReplicas := .Values.autoscaling.minReplicas | int }}
+  {{- $maxReplicas := .Values.autoscaling.maxReplicas | int }}
+  
+  {{- if or (lt $minReplicas 1) (gt $minReplicas 10) }}
+    {{- fail "Error: autoscaling.minReplicas must be between 1 and 10" }}
+  {{- end }}
+  
+  {{- if or (lt $maxReplicas 2) (gt $maxReplicas 20) }}
+    {{- fail "Error: autoscaling.maxReplicas must be between 2 and 20" }}
+  {{- end }}
+  
+  {{- if le $maxReplicas $minReplicas }}
+    {{- fail "Error: autoscaling.maxReplicas must be greater than minReplicas" }}
+  {{- end }}
 {{- end }}
 {{- end }} 

@@ -6,6 +6,7 @@
 {{/* Validate resource guardrails */}}
 {{- include "generic-app.validateCpu" . }}
 {{- include "generic-app.validateMemory" . }}
+{{- include "generic-app.validateAutoscaling" . }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -28,7 +29,6 @@ spec:
         {{- toYaml . | nindent 8 }}
         {{- end }}
     spec:
-      serviceAccountName: {{ include "generic-app.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
@@ -58,17 +58,6 @@ spec:
             requests:
               cpu: {{ include "generic-app.cpuRequest" . }}
               memory: {{ include "generic-app.memoryRequest" . }}
-          {{- if .Values.persistence.enabled }}
-          volumeMounts:
-            - name: data
-              mountPath: {{ .Values.persistence.mountPath }}
-          {{- end }}
-      {{- if .Values.persistence.enabled }}
-      volumes:
-        - name: data
-          persistentVolumeClaim:
-            claimName: {{ include "generic-app.fullname" . }}
-      {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
