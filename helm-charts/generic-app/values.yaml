@@ -1,0 +1,126 @@
+# Default values for generic-app
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Application configuration (optional)
+app:
+  name: ""  # Override app name (uses release name if empty)
+
+# Image configuration
+image:
+  repository: ""  # REQUIRED: Container image repository
+  tag: ""         # REQUIRED: Image tag/version
+
+# Container configuration
+container:
+  port: 80
+  # Environment variables
+  env: []
+  # - name: ENV_VAR
+  #   value: "value"
+  # - name: SECRET_VAR
+  #   valueFrom:
+  #     secretKeyRef:
+  #       name: my-secret
+  #       key: secret-key
+
+# Health checks (mandatory)
+healthChecks:
+  path: "/"  # Health check endpoint path
+
+# Resource configuration
+resources:
+  cpu: "500m"     # CPU limit (requests auto-set to 50%)
+  memory: "512Mi" # Memory limit (requests auto-set to 50%)
+
+# Horizontal Pod Autoscaler
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+# Service configuration
+service:
+  enabled: true
+  port: 80
+  targetPort: http
+  # annotations: {}
+
+# Ingress configuration
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: chart-example.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+# Pod Security Context
+podSecurityContext:
+  # fsGroup: 2000
+
+# Container Security Context
+securityContext:
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+# Service Account
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+# Pod annotations
+podAnnotations: {}
+
+# Pod labels
+podLabels: {}
+
+# Node selection
+nodeSelector: {}
+
+# Tolerations
+tolerations: []
+
+# Affinity
+affinity: {}
+
+# Persistent storage
+persistence:
+  enabled: false
+  # existingClaim: ""
+  storageClass: ""
+  size: 1Gi
+  mountPath: /data
+  annotations: {}
+
+# ConfigMap configuration
+configMap:
+  enabled: false
+  data: {}
+    # config.yaml: |
+    #   key: value
+
+# Secret configuration
+secret:
+  enabled: false
+  data: {}
+    # secret-key: base64-encoded-value 

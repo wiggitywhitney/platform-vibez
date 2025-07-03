@@ -1,0 +1,90 @@
+# Example: API application with database connection
+app:
+  name: "my-api"
+  version: "2.1.0"
+
+image:
+  repository: my-registry/my-api
+  tag: "v2.1.0"
+  pullPolicy: Always
+
+replicaCount: 3
+
+container:
+  port: 8080
+  env:
+    - name: PORT
+      value: "8080"
+    - name: DB_HOST
+      value: "postgres.database"
+    - name: DB_USER
+      valueFrom:
+        secretKeyRef:
+          name: database-secret
+          key: username
+    - name: DB_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: database-secret
+          key: password
+
+healthChecks:
+  enabled: true
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: http
+    initialDelaySeconds: 60
+    periodSeconds: 30
+  readinessProbe:
+    httpGet:
+      path: /ready
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 5
+
+resources:
+  requests:
+    cpu: 200m
+    memory: 512Mi
+  limits:
+    cpu: 500m
+    memory: 1Gi
+
+service:
+  enabled: true
+  type: ClusterIP
+  port: 80
+  targetPort: http
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  hosts:
+    - host: api.example.com
+      paths:
+        - path: /api
+          pathType: Prefix
+  tls:
+    - secretName: api-tls
+      hosts:
+        - api.example.com
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 20
+  targetCPUUtilizationPercentage: 75
+  targetMemoryUtilizationPercentage: 80
+
+configMap:
+  enabled: true
+  data:
+    app.yaml: |
+      logging:
+        level: info
+      cache:
+        ttl: 300 

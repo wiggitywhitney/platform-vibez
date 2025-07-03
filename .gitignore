@@ -1,0 +1,43 @@
+# Helm
+*.tgz
+charts/*/charts/
+charts/*/requirements.lock
+
+# Kubernetes
+*.kubeconfig
+kubeconfig*
+.kube/
+
+# MacOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+*.tmp
+*.temp
+.tmp/
+.temp/
+
+# Logs
+*.log
+logs/
+
+# Local environment files
+.env
+.env.local
+.env.*.local
+
+# Kind clusters
+kind-config.yaml 

@@ -1,0 +1,83 @@
+{{- $fullImage := include "generic-app.image" . }}
+{{- if contains "latest" $fullImage }}
+{{- fail "Error: 'latest' is not allowed in image names or tags. Please specify a specific version tag." }}
+{{- end }}
+
+{{/* Validate resource guardrails */}}
+{{- include "generic-app.validateCpu" . }}
+{{- include "generic-app.validateMemory" . }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "generic-app.fullname" . }}
+  labels:
+    {{- include "generic-app.labels" . | nindent 4 }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "generic-app.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "generic-app.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "generic-app.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: {{ include "generic-app.image" . }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.container.port }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.healthChecks.path }}
+              port: http
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.healthChecks.path }}
+              port: http
+          {{- if .Values.container.env }}
+          env:
+            {{- toYaml .Values.container.env | nindent 12 }}
+          {{- end }}
+          resources:
+            limits:
+              cpu: {{ .Values.resources.cpu }}
+              memory: {{ .Values.resources.memory }}
+            requests:
+              cpu: {{ include "generic-app.cpuRequest" . }}
+              memory: {{ include "generic-app.memoryRequest" . }}
+          {{- if .Values.persistence.enabled }}
+          volumeMounts:
+            - name: data
+              mountPath: {{ .Values.persistence.mountPath }}
+          {{- end }}
+      {{- if .Values.persistence.enabled }}
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "generic-app.fullname" . }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }} 

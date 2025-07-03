@@ -1,0 +1,15 @@
+apiVersion: v2
+name: generic-app
+description: A flexible Helm chart for deploying generic applications with deployment, service, and ingress
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - generic
+  - deployment
+  - service
+  - ingress
+maintainers:
+  - name: Platform Team
+sources:
+  - https://github.com/platform/helm-charts 
