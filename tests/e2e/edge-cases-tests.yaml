@@ -1,0 +1,232 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: edge-cases-tests
+spec:
+  description: Test edge cases and error scenarios
+  steps:
+  - name: test-boundary-values
+    try:
+    - description: Test minimum valid CPU
+      script:
+        content: |
+          helm install min-cpu-test ../../helm-charts/generic-app \
+            --namespace $NAMESPACE \
+            --set image.repository=nginx \
+            --set image.tag=1.25 \
+            --set container.port=80 \
+            --set healthChecks.path=/ \
+            --set resources.cpu=100m \
+            --set resources.memory=128Mi \
+           
+    
+    - description: Verify minimum CPU deployment works
+      assert:
+        resource:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: min-cpu-test-generic-app
+          spec:
+            template:
+              spec:
+                containers:
+                - name: generic-app
+                  resources:
+                    limits:
+                      cpu: 100m
+                      memory: 128Mi
+                    requests:
+                      cpu: 50m  # 50% of 100m
+                      memory: 64Mi  # 50% of 128Mi
+    
+    finally:
+    - description: Clean up min CPU test
+      script:
+        content: helm uninstall min-cpu-test --namespace $NAMESPACE || true
+  
+  - name: test-port-edge-cases
+    try:
+    - description: Test with high port number
+      script:
+        content: |
+          helm install high-port-test ../../helm-charts/generic-app \
+            --namespace $NAMESPACE \
+            --set image.repository=nginx \
+            --set image.tag=1.25 \
+            --set container.port=8443 \
+            --set healthChecks.path=/ \
+            --set resources.cpu=100m \
+            --set resources.memory=128Mi \
+           
+    
+    - description: Verify port auto-sync works with high port
+      assert:
+        resource:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: high-port-test-generic-app
+          spec:
+            ports:
+            - port: 8443
+              targetPort: http
+              protocol: TCP
+    
+    - description: Verify ingress uses same port when enabled
+      script:
+        content: |
+          helm upgrade high-port-test ../../helm-charts/generic-app \
+            --namespace $NAMESPACE \
+            --set image.repository=nginx \
+            --set image.tag=1.25 \
+            --set container.port=8443 \
+            --set healthChecks.path=/ \
+            --set resources.cpu=100m \
+            --set resources.memory=128Mi \
+            --set ingress.enabled=true \
+            --set ingress.hosts[0].host=highport.example.com \
+           
+    
+    - description: Verify ingress backend port matches
+      assert:
+        resource:
+          apiVersion: networking.k8s.io/v1
+          kind: Ingress
+          metadata:
+            name: high-port-test-generic-app
+          spec:
+            rules:
+            - host: highport.example.com
+              http:
+                paths:
+                - path: "/"
+                  pathType: "Prefix"
+                  backend:
+                    service:
+                      name: high-port-test-generic-app
+                      port:
+                        number: 8443
+    
+    finally:
+    - description: Clean up high port test
+      script:
+        content: helm uninstall high-port-test --namespace $NAMESPACE || true
+  
+  - name: test-upgrade-scenario
+    try:
+    - description: Deploy initial version
+      script:
+        content: |
+          helm install upgrade-test ../../helm-charts/generic-app \
+            --namespace $NAMESPACE \
+            --set image.repository=nginx \
+            --set image.tag=1.24 \
+            --set container.port=80 \
+            --set healthChecks.path=/ \
+            --set resources.cpu=100m \
+            --set resources.memory=128Mi \
+           
+    
+    - description: Upgrade to new version with different resources
+      script:
+        content: |
+          helm upgrade upgrade-test ../../helm-charts/generic-app \
+            --namespace $NAMESPACE \
+            --set image.repository=nginx \
+            --set image.tag=1.25 \
+            --set container.port=8080 \
+            --set healthChecks.path=/health \
+            --set resources.cpu=200m \
+            --set resources.memory=256Mi \
+           
+    
+    - description: Verify upgrade maintained platform features
+      assert:
+        resource:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: upgrade-test-generic-app
+          spec:
+            template:
+              spec:
+                containers:
+                - name: generic-app
+                  image: nginx:1.25
+                  ports:
+                  - containerPort: 8080
+                    name: http
+                  resources:
+                    limits:
+                      cpu: 200m
+                      memory: 256Mi
+                    requests:
+                      cpu: 100m  # Auto-calculated 50%
+                      memory: 128Mi  # Auto-calculated 50%
+                  livenessProbe:
+                    httpGet:
+                      path: /health
+                      port: http
+                  readinessProbe:
+                    httpGet:
+                      path: /health
+                      port: http
+    
+    - description: Verify service port was updated
+      assert:
+        resource:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: upgrade-test-generic-app
+          spec:
+            ports:
+            - port: 8080  # Updated port
+              targetPort: http
+    
+    finally:
+    - description: Clean up upgrade test
+      script:
+        content: helm uninstall upgrade-test --namespace $NAMESPACE || true
+  
+  - name: test-health-check-paths
+    try:
+    - description: Test various health check paths
+      script:
+        content: |
+          helm install health-path-test ../../helm-charts/generic-app \
+            --namespace $NAMESPACE \
+            --set image.repository=nginx \
+            --set image.tag=1.25 \
+            --set container.port=80 \
+            --set healthChecks.path=/api/v1/health/live \
+            --set resources.cpu=100m \
+            --set resources.memory=128Mi \
+           
+    
+    - description: Verify complex health check path works
+      assert:
+        resource:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: health-path-test-generic-app
+          spec:
+            template:
+              spec:
+                containers:
+                - name: generic-app
+                  livenessProbe:
+                    httpGet:
+                      path: /api/v1/health/live
+                      port: http
+                  readinessProbe:
+                    httpGet:
+                      path: /api/v1/health/live
+                      port: http
+    
+    finally:
+    - description: Clean up health path test
+      script:
+        content: helm uninstall health-path-test --namespace $NAMESPACE || true 

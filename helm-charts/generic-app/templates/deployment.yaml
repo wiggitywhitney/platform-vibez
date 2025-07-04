@@ -32,10 +32,18 @@ spec:
             httpGet:
               path: {{ .Values.healthChecks.path }}
               port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
           readinessProbe:
             httpGet:
               path: {{ .Values.healthChecks.path }}
               port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
           {{- if .Values.container.env }}
           env:
             {{- toYaml .Values.container.env | nindent 12 }}

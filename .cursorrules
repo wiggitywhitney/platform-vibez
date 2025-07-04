@@ -1,0 +1,55 @@
+# Platform Vibez - Cursor AI Rules
+
+## Project Context
+This is a platform engineering project focused on:
+- Helm charts for generic application deployment
+- Kubernetes platform abstractions
+- Chainsaw testing for chart validation
+- Opinionated defaults that reduce complexity for end users
+
+## Coding Standards & Conventions
+
+### Helm Charts
+- Always use semantic versioning for chart versions
+- Prefer hardcoded platform defaults over user configuration
+- Use consistent naming: kebab-case for resources, camelCase for values
+- Template files should have clear comments explaining platform decisions
+- Values should be organized by functional area (ingress, autoscaling, etc.)
+
+### Testing with Chainsaw
+- Test files should follow naming pattern: [category]-tests.yaml
+- Always include both positive and negative test cases
+- Use descriptive test names that explain the behavior being tested
+- Include timeout configurations for reliable CI execution
+- Validate both resource creation and platform guardrails
+
+### YAML Style
+- Use 2-space indentation
+- Always quote string values in Helm templates
+- Use | for multi-line strings, |+ to preserve final newlines
+- Group related configuration sections with comments
+
+## Architecture Principles
+- **Platform over Infrastructure**: Abstract away Kubernetes complexity
+- **Sensible Defaults**: Minimize required user configuration
+- **Progressive Disclosure**: Advanced options available but hidden
+- **Fail Fast**: Validate inputs early with clear error messages
+
+## Response Guidelines
+- When suggesting Helm changes, explain the platform engineering rationale
+- Always consider the end-user (developer) experience, not just the platform team
+- Prefer examples from this codebase over generic tutorials
+- When writing tests, include both the happy path and error conditions
+- Focus on maintainability and operational simplicity
+
+## Key Concepts
+- **Generic App Chart**: A single chart that works for most stateless applications
+- **Platform Guardrails**: Validation rules that prevent misconfigurations
+- **Auto-calculation**: Platform automatically sets resource limits based on requests
+- **Opinionated Ingress**: Hardcoded nginx with automatic TLS via cert-manager
+
+## Don't Suggest
+- Complex Helm chart configurations that expose too many options
+- Manual kubectl commands when Helm should be used
+- Test patterns that require manual verification
+- Solutions that increase cognitive load on end users 

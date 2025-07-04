@@ -1,0 +1,11 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Configuration
+metadata:
+  name: platform-tests-config
+spec:
+  # Basic execution settings
+  parallel: 4
+  failFast: false
+  
+  # Cleanup
+  skipDelete: false 

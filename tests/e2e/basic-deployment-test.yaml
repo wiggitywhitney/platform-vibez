@@ -1,0 +1,109 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: basic-deployment
+spec:
+  description: Basic deployment test - prove our simplified chart works
+  steps:
+  - name: deploy-chart
+    try:
+    - description: Deploy chart with minimal configuration
+      script:
+        content: |
+          helm install basic-test ../../helm-charts/generic-app \
+            --namespace $NAMESPACE \
+            --set image.repository=nginx \
+            --set image.tag=1.25 \
+            --set container.port=80 \
+            --set healthChecks.path=/ \
+            --set resources.cpu=100m \
+            --set resources.memory=128Mi
+    
+    - description: Verify deployment is created
+      assert:
+        resource:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: basic-test-generic-app
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app.kubernetes.io/name: generic-app
+                app.kubernetes.io/instance: basic-test
+    
+    - description: Verify pod is running
+      assert:
+        resource:
+          apiVersion: v1
+          kind: Pod
+          metadata:
+            labels:
+              app.kubernetes.io/name: generic-app
+              app.kubernetes.io/instance: basic-test
+          status:
+            phase: Running
+    
+    - description: Verify service is created
+      assert:
+        resource:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: basic-test-generic-app
+          spec:
+            type: ClusterIP
+            ports:
+            - port: 80
+              targetPort: http
+              protocol: TCP
+            selector:
+              app.kubernetes.io/name: generic-app
+              app.kubernetes.io/instance: basic-test
+    
+    - description: Verify resource calculations (50% requests)
+      assert:
+        resource:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: basic-test-generic-app
+          spec:
+            template:
+              spec:
+                containers:
+                - name: generic-app
+                  resources:
+                    limits:
+                      cpu: 100m
+                      memory: 128Mi
+                    requests:
+                      cpu: 50m
+                      memory: 64Mi
+    
+    - description: Verify health checks are configured
+      assert:
+        resource:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: basic-test-generic-app
+          spec:
+            template:
+              spec:
+                containers:
+                - name: generic-app
+                  livenessProbe:
+                    httpGet:
+                      path: /
+                      port: http
+                  readinessProbe:
+                    httpGet:
+                      path: /
+                      port: http
+    
+    finally:
+    - description: Clean up test deployment
+      script:
+        content: helm uninstall basic-test --namespace $NAMESPACE || true 

@@ -1,0 +1,140 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: autoscaling-tests
+spec:
+  description: Test autoscaling functionality and platform-enforced behavior
+  steps:
+  - name: test-autoscaling-disabled
+    try:
+    - description: Deploy chart with autoscaling disabled
+      script:
+        content: |
+          helm install autoscaling-disabled-test ../../helm-charts/generic-app \
+            --namespace $NAMESPACE \
+            --set image.repository=nginx \
+            --set image.tag=1.25 \
+            --set container.port=80 \
+            --set healthChecks.path=/ \
+            --set resources.cpu=100m \
+            --set resources.memory=128Mi \
+            --set autoscaling.enabled=false \
+           
+    
+    - description: Verify no HPA is created
+      script:
+        content: kubectl get hpa autoscaling-disabled-test-generic-app --namespace $NAMESPACE
+        check:
+          ($error != null): true
+          (contains($stderr, 'not found')): true
+    
+    - description: Verify deployment has 1 replica (default)
+      assert:
+        resource:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: autoscaling-disabled-test-generic-app
+          spec:
+            replicas: 1
+    
+    finally:
+    - description: Clean up test
+      script:
+        content: helm uninstall autoscaling-disabled-test --namespace $NAMESPACE || true
+  
+  - name: test-autoscaling-enabled-defaults
+    try:
+    - description: Deploy chart with autoscaling enabled using defaults
+      script:
+        content: |
+          helm install autoscaling-default-test ../../helm-charts/generic-app \
+            --namespace $NAMESPACE \
+            --set image.repository=nginx \
+            --set image.tag=1.25 \
+            --set container.port=80 \
+            --set healthChecks.path=/ \
+            --set resources.cpu=100m \
+            --set resources.memory=128Mi \
+            --set autoscaling.enabled=true \
+           
+    
+    - description: Verify HPA is created with platform defaults
+      assert:
+        resource:
+          apiVersion: autoscaling/v2
+          kind: HorizontalPodAutoscaler
+          metadata:
+            name: autoscaling-default-test-generic-app
+          spec:
+            scaleTargetRef:
+              apiVersion: apps/v1
+              kind: Deployment
+              name: autoscaling-default-test-generic-app
+            minReplicas: 2
+            maxReplicas: 5
+            metrics:
+            - type: Resource
+              resource:
+                name: cpu
+                target:
+                  type: Utilization
+                  averageUtilization: 75
+            - type: Resource
+              resource:
+                name: memory
+                target:
+                  type: Utilization
+                  averageUtilization: 75
+    
+    finally:
+    - description: Clean up test
+      script:
+        content: helm uninstall autoscaling-default-test --namespace $NAMESPACE || true
+  
+  - name: test-autoscaling-custom-values
+    try:
+    - description: Deploy chart with custom autoscaling values
+      script:
+        content: |
+          helm install autoscaling-custom-test ../../helm-charts/generic-app \
+            --namespace $NAMESPACE \
+            --set image.repository=nginx \
+            --set image.tag=1.25 \
+            --set container.port=80 \
+            --set healthChecks.path=/ \
+            --set resources.cpu=200m \
+            --set resources.memory=256Mi \
+            --set autoscaling.enabled=true \
+            --set autoscaling.minReplicas=3 \
+            --set autoscaling.maxReplicas=8 \
+           
+    
+    - description: Verify HPA uses custom values but platform-enforced metrics
+      assert:
+        resource:
+          apiVersion: autoscaling/v2
+          kind: HorizontalPodAutoscaler
+          metadata:
+            name: autoscaling-custom-test-generic-app
+          spec:
+            minReplicas: 3
+            maxReplicas: 8
+            metrics:
+            - type: Resource
+              resource:
+                name: cpu
+                target:
+                  type: Utilization
+                  averageUtilization: 75  # Platform enforced
+            - type: Resource
+              resource:
+                name: memory
+                target:
+                  type: Utilization
+                  averageUtilization: 75  # Platform enforced
+    
+    finally:
+    - description: Clean up test
+      script:
+        content: helm uninstall autoscaling-custom-test --namespace $NAMESPACE || true 

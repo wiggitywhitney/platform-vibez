@@ -1,0 +1,190 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: platform-managed-tests
+spec:
+  description: Test platform-managed features and hidden complexity
+  steps:
+  - name: test-service-always-created
+    try:
+    - description: Deploy chart and verify service is always created
+      script:
+        content: |
+          helm install service-test ../../helm-charts/generic-app \
+            --namespace $NAMESPACE \
+            --set image.repository=nginx \
+            --set image.tag=1.25 \
+            --set container.port=8080 \
+            --set healthChecks.path=/health \
+            --set resources.cpu=200m \
+            --set resources.memory=256Mi \
+           
+    
+    - description: Verify service is created with auto-synced port
+      assert:
+        resource:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: service-test-generic-app
+          spec:
+            type: ClusterIP
+            ports:
+            - port: 8080  # Auto-synced from container.port
+              targetPort: http
+              protocol: TCP
+              name: http
+            selector:
+              app.kubernetes.io/name: generic-app
+              app.kubernetes.io/instance: service-test
+    
+    - description: Verify container uses same port
+      assert:
+        resource:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: service-test-generic-app
+          spec:
+            template:
+              spec:
+                containers:
+                - name: generic-app
+                  ports:
+                  - containerPort: 8080
+                    name: http
+    
+    finally:
+    - description: Clean up test
+      script:
+        content: helm uninstall service-test --namespace $NAMESPACE || true
+  
+  - name: test-health-checks-mandatory
+    try:
+    - description: Deploy chart and verify health checks are mandatory
+      script:
+        content: |
+          helm install health-test ../../helm-charts/generic-app \
+            --namespace $NAMESPACE \
+            --set image.repository=nginx \
+            --set image.tag=1.25 \
+            --set container.port=80 \
+            --set healthChecks.path=/api/health \
+            --set resources.cpu=100m \
+            --set resources.memory=128Mi \
+           
+    
+    - description: Verify both liveness and readiness probes are created
+      assert:
+        resource:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: health-test-generic-app
+          spec:
+            template:
+              spec:
+                containers:
+                - name: generic-app
+                  livenessProbe:
+                    httpGet:
+                      path: /api/health
+                      port: http
+                    initialDelaySeconds: 30
+                    periodSeconds: 10
+                    timeoutSeconds: 5
+                    failureThreshold: 3
+                    successThreshold: 1
+                  readinessProbe:
+                    httpGet:
+                      path: /api/health
+                      port: http
+                    initialDelaySeconds: 5
+                    periodSeconds: 5
+                    timeoutSeconds: 3
+                    failureThreshold: 3
+                    successThreshold: 1
+    
+    finally:
+    - description: Clean up test
+      script:
+        content: helm uninstall health-test --namespace $NAMESPACE || true
+  
+  - name: test-resource-auto-calculation
+    try:
+    - description: Deploy chart with various resource configurations
+      script:
+        content: |
+          helm install resource-calc-test ../../helm-charts/generic-app \
+            --namespace $NAMESPACE \
+            --set image.repository=nginx \
+            --set image.tag=1.25 \
+            --set container.port=80 \
+            --set healthChecks.path=/ \
+            --set resources.cpu=1000m \
+            --set resources.memory=2048Mi \
+           
+    
+    - description: Verify resource requests are auto-calculated to 50% of limits
+      assert:
+        resource:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: resource-calc-test-generic-app
+          spec:
+            template:
+              spec:
+                containers:
+                - name: generic-app
+                  resources:
+                    limits:
+                      cpu: "1"  # Kubernetes normalizes 1000m to 1
+                      memory: 2Gi  # Kubernetes normalizes 2048Mi to 2Gi
+                    requests:
+                      cpu: 500m  # 50% of 1000m
+                      memory: 1Gi  # Kubernetes normalizes 1024Mi to 1Gi
+    
+    finally:
+    - description: Clean up test
+      script:
+        content: helm uninstall resource-calc-test --namespace $NAMESPACE || true
+  
+  - name: test-environment-variables
+    try:
+    - description: Deploy chart with environment variables
+      script:
+        content: |
+          helm install env-test ../../helm-charts/generic-app \
+            --namespace $NAMESPACE \
+            --set image.repository=nginx \
+            --set image.tag=1.25 \
+            --set container.port=80 \
+            --set healthChecks.path=/ \
+            --set resources.cpu=100m \
+            --set resources.memory=128Mi \
+            --set-json 'container.env=[{"name":"ENV_VAR","value":"test-value"},{"name":"API_URL","value":"https://api.example.com"}]' \
+           
+    
+    - description: Verify environment variables are set
+      assert:
+        resource:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: env-test-generic-app
+          spec:
+            template:
+              spec:
+                containers:
+                - name: generic-app
+                  env:
+                  - name: ENV_VAR
+                    value: test-value
+                  - name: API_URL
+                    value: https://api.example.com
+    
+    finally:
+    - description: Clean up test
+      script:
+        content: helm uninstall env-test --namespace $NAMESPACE || true 

@@ -1,0 +1,165 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: validation-tests
+spec:
+  description: Test platform guardrails and validation rules
+  steps:
+  - name: test-latest-tag-prevention
+    try:
+    - description: Should fail when using latest tag
+      script:
+        content: |
+          helm install latest-test ../../helm-charts/generic-app \
+            --namespace $NAMESPACE \
+            --set image.repository=nginx \
+            --set image.tag=latest \
+            --set container.port=80 \
+            --set healthChecks.path=/ \
+            --set resources.cpu=100m \
+            --set resources.memory=128Mi \
+           
+        check:
+          ($error != null): true
+          (contains($stderr, 'latest')): true
+    
+    - description: Should fail when using latest in repository
+      script:
+        content: |
+          helm install latest-repo-test ../../helm-charts/generic-app \
+            --namespace $NAMESPACE \
+            --set image.repository=nginx:latest \
+            --set image.tag=1.25 \
+            --set container.port=80 \
+            --set healthChecks.path=/ \
+            --set resources.cpu=100m \
+            --set resources.memory=128Mi \
+           
+        check:
+          ($error != null): true
+          (contains($stderr, 'latest')): true
+  
+  - name: test-resource-limits
+    try:
+    - description: Should fail when CPU is too low
+      script:
+        content: |
+          helm install cpu-low-test ../../helm-charts/generic-app \
+            --namespace $NAMESPACE \
+            --set image.repository=nginx \
+            --set image.tag=1.25 \
+            --set container.port=80 \
+            --set healthChecks.path=/ \
+            --set resources.cpu=50m \
+            --set resources.memory=128Mi \
+           
+        check:
+          ($error != null): true
+          (contains($stderr, 'CPU')): true
+    
+    - description: Should fail when CPU is too high
+      script:
+        content: |
+          helm install cpu-high-test ../../helm-charts/generic-app \
+            --namespace $NAMESPACE \
+            --set image.repository=nginx \
+            --set image.tag=1.25 \
+            --set container.port=80 \
+            --set healthChecks.path=/ \
+            --set resources.cpu=5000m \
+            --set resources.memory=128Mi \
+           
+        check:
+          ($error != null): true
+          (contains($stderr, 'CPU')): true
+    
+    - description: Should fail when memory is too low
+      script:
+        content: |
+          helm install memory-low-test ../../helm-charts/generic-app \
+            --namespace $NAMESPACE \
+            --set image.repository=nginx \
+            --set image.tag=1.25 \
+            --set container.port=80 \
+            --set healthChecks.path=/ \
+            --set resources.cpu=100m \
+            --set resources.memory=64Mi \
+           
+        check:
+          ($error != null): true
+          (contains($stderr, 'Memory')): true
+    
+    - description: Should fail when memory is too high
+      script:
+        content: |
+          helm install memory-high-test ../../helm-charts/generic-app \
+            --namespace $NAMESPACE \
+            --set image.repository=nginx \
+            --set image.tag=1.25 \
+            --set container.port=80 \
+            --set healthChecks.path=/ \
+            --set resources.cpu=100m \
+            --set resources.memory=10Gi \
+           
+        check:
+          ($error != null): true
+          (contains($stderr, 'Memory')): true
+  
+  - name: test-autoscaling-validation
+    try:
+    - description: Should fail when maxReplicas is less than minReplicas
+      script:
+        content: |
+          helm install autoscaling-invalid-test ../../helm-charts/generic-app \
+            --namespace $NAMESPACE \
+            --set image.repository=nginx \
+            --set image.tag=1.25 \
+            --set container.port=80 \
+            --set healthChecks.path=/ \
+            --set resources.cpu=100m \
+            --set resources.memory=128Mi \
+            --set autoscaling.enabled=true \
+            --set autoscaling.minReplicas=5 \
+            --set autoscaling.maxReplicas=3 \
+           
+        check:
+          ($error != null): true
+          (contains($stderr, 'maxReplicas')): true
+    
+    - description: Should fail when minReplicas is too high
+      script:
+        content: |
+          helm install autoscaling-min-high-test ../../helm-charts/generic-app \
+            --namespace $NAMESPACE \
+            --set image.repository=nginx \
+            --set image.tag=1.25 \
+            --set container.port=80 \
+            --set healthChecks.path=/ \
+            --set resources.cpu=100m \
+            --set resources.memory=128Mi \
+            --set autoscaling.enabled=true \
+            --set autoscaling.minReplicas=15 \
+            --set autoscaling.maxReplicas=20 \
+           
+        check:
+          ($error != null): true
+          (contains($stderr, 'minReplicas')): true
+    
+    - description: Should fail when maxReplicas is too high
+      script:
+        content: |
+          helm install autoscaling-max-high-test ../../helm-charts/generic-app \
+            --namespace $NAMESPACE \
+            --set image.repository=nginx \
+            --set image.tag=1.25 \
+            --set container.port=80 \
+            --set healthChecks.path=/ \
+            --set resources.cpu=100m \
+            --set resources.memory=128Mi \
+            --set autoscaling.enabled=true \
+            --set autoscaling.minReplicas=2 \
+            --set autoscaling.maxReplicas=25 \
+           
+        check:
+          ($error != null): true
+          (contains($stderr, 'maxReplicas')): true 
