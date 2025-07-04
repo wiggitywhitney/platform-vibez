@@ -98,49 +98,39 @@ autoscaling:
 # =============================================================================
 ingress:
   enabled: false  # Disabled by default - enable when external access needed
-  className: ""   # Ingress class (e.g., "nginx", "traefik")
-  annotations: {}
-    # kubernetes.io/ingress.class: nginx
-    # kubernetes.io/tls-acme: "true"
   hosts:
     - host: chart-example.local
-      paths:
-        - path: /
-          pathType: Prefix
-  tls: []
-  #  - secretName: chart-example-tls
-  #    hosts:
-  #      - chart-example.local
-
-podSecurityContext:
-  # fsGroup: 2000
-
-securityContext:
-  # capabilities:
-  #   drop:
-  #   - ALL
-  # readOnlyRootFilesystem: true
-  # runAsNonRoot: true
-  # runAsUser: 1000
+  tls:
+    enabled: false  # Enable HTTPS with cert-manager
+  # PLATFORM MANAGED (not exposed to users):
+  # - className: "nginx" (hardcoded to ingress-nginx)
+  # - annotations: {} (none for now, platform adds as needed)
+  # - paths: [{path: "/", pathType: "Prefix"}] (hardcoded)
+  # - tls.issuer: "letsencrypt-prod" (hardcoded cert-manager issuer)
+  # - tls.secretName: auto-generated from release name + "-tls"
 
 # =============================================================================
-# SECURITY CONTEXTS (Defaults Commented - K8s Handles)
+# SECURITY & POD CONFIGURATION
 # =============================================================================
-# PLATFORM PHILOSOPHY: Don't hardcode K8s defaults in templates
-# These are available for customization but not enforced by default
+# PLATFORM PHILOSOPHY: Security contexts are complex and should be platform-managed
+# Users don't need to configure these - platform provides sensible defaults
+# 
+# PLATFORM MANAGED (not exposed to users):
+# - podSecurityContext: {} (platform handles)
+# - securityContext: {} (platform handles)
+# - podAnnotations: {} (platform handles)
+# - podLabels: {} (platform handles)
 
 # =============================================================================
-# POD CONFIGURATION
+# SCHEDULING
 # =============================================================================
-podAnnotations: {} # Additional pod annotations
-podLabels: {}      # Additional pod labels
-
-# =============================================================================
-# SCHEDULING (Advanced Configuration)
-# =============================================================================
-nodeSelector: {}   # Node selection constraints
-tolerations: []    # Pod tolerations
-affinity: {}       # Pod affinity/anti-affinity rules
+# PLATFORM PHILOSOPHY: Scheduling is complex and should be platform-managed
+# Users don't need to configure node selection, tolerations, or affinity
+# 
+# PLATFORM MANAGED (not exposed to users):
+# - nodeSelector: {} (platform handles node selection)
+# - tolerations: [] (platform handles pod tolerations)
+# - affinity: {} (platform handles pod affinity/anti-affinity)
 
 
 
