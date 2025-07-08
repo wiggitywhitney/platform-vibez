@@ -8,19 +8,27 @@
 # ==============
 # Before running this script, you must:
 # 1. Install Docker Desktop and ensure it's running
-# 2. Have a valid Datadog API key (32-character hex string)
-# 3. Set the DATADOG_API_KEY environment variable:
-#    export DATADOG_API_KEY="your_api_key_here"
-# 4. Install Homebrew (for automatic tool installation)
-# 5. Have kubectl and kind installed (or allow script to install them)
+# 2. Have a valid Datadog API key available via either:
+#    a) Teller with .teller.yml configuration (recommended for security)
+#    b) DATADOG_API_KEY environment variable
+# 3. Install Homebrew (for automatic tool installation)
+# 4. Have kubectl and kind installed (or allow script to install them)
 #
 # Usage:
 # ======
+# Option 1 - Using Teller (recommended):
+# ./setup-k8s-cluster.sh [cluster_name]
+#
+# Option 2 - Using environment variable:
 # export DATADOG_API_KEY="your_api_key_here"
 # ./setup-k8s-cluster.sh [cluster_name]
 #
 # Example:
 # ========
+# # With Teller (requires .teller.yml)
+# ./setup-k8s-cluster.sh my-cluster
+#
+# # With environment variable
 # export DATADOG_API_KEY="abcd1234ef567890abcd1234ef567890"
 # ./setup-k8s-cluster.sh my-cluster
 #
@@ -76,9 +84,32 @@ command_exists() {
 # Check prerequisites
 echo "🔍 Checking prerequisites..."
 
-# Check if DATADOG_API_KEY is set
+# Check for Datadog API key - try Teller first, then environment variable
+DATADOG_API_KEY_SOURCE=""
+
+# Try to get API key from Teller first
+if command_exists teller && [[ -f ".teller.yml" ]]; then
+    print_info "Attempting to retrieve Datadog API key from Teller..."
+    if TELLER_OUTPUT=$(teller env 2>/dev/null) && echo "$TELLER_OUTPUT" | grep -q "DATADOG_API_KEY="; then
+        DATADOG_API_KEY=$(echo "$TELLER_OUTPUT" | grep "DATADOG_API_KEY=" | cut -d'=' -f2)
+        DATADOG_API_KEY_SOURCE="teller"
+        print_status "Datadog API key retrieved from Teller"
+    else
+        print_warning "Teller configuration found but failed to retrieve DATADOG_API_KEY"
+    fi
+fi
+
+# Fall back to environment variable if Teller didn't work
+if [[ -z "${DATADOG_API_KEY_SOURCE}" ]] && [[ -n "${DATADOG_API_KEY:-}" ]]; then
+    DATADOG_API_KEY_SOURCE="environment"
+    print_status "Using DATADOG_API_KEY from environment variable"
+fi
+
+# Error if no API key found
 if [[ -z "${DATADOG_API_KEY}" ]]; then
-    print_error "DATADOG_API_KEY environment variable is not set. Please set it to your Datadog API key."
+    print_error "DATADOG_API_KEY not found. Please either:
+1. Set up Teller with .teller.yml (recommended for security), or  
+2. Set DATADOG_API_KEY environment variable: export DATADOG_API_KEY=\"your_api_key_here\""
 fi
 
 # Validate API key format (should be 32 characters)
@@ -137,6 +168,19 @@ if ! command_exists helm; then
     fi
 else
     print_status "helm is installed"
+fi
+
+# Check if teller is available when .teller.yml exists
+if [[ -f ".teller.yml" ]] && ! command_exists teller; then
+    print_warning "Found .teller.yml but teller is not installed. Installing with brew..."
+    if command_exists brew; then
+        brew install teller
+        print_status "teller installed successfully"
+    else
+        print_warning "Homebrew not found. Please install teller manually or use environment variables."
+    fi
+elif [[ -f ".teller.yml" ]]; then
+    print_status "teller is installed and .teller.yml found"
 fi
 
 # Check if Docker is running

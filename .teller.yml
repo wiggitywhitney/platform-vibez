@@ -1,0 +1,9 @@
+project: demo-time
+providers:
+  google_secrets_manager:
+    kind: google_secretmanager
+    maps:
+      - id: secrets
+        path: projects/demoo-ooclock
+        keys:
+          datadog_api_key_platform_vibez: DATADOG_API_KEY
