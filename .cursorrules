@@ -1,4 +1,36 @@
-# Platform Vibez - Cursor AI Rules
+# 🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨
+# ⚠️  CRITICAL SECURITY RULE - API KEY HANDLING ⚠️
+# 🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨
+
+# ❌ NEVER EVER COMMIT REAL API KEYS TO GIT ❌
+# ❌ NEVER WRITE REAL API KEYS TO FILES WITHOUT EXPLICIT USER APPROVAL ❌
+# ❌ NEVER INCLUDE REAL API KEYS IN EXAMPLES OR DOCUMENTATION ❌
+
+# REQUIRED ACTIONS:
+# 1. Always use fictitious/placeholder API keys in examples (e.g., "abcd1234ef567890abcd1234ef567890")
+# 2. Always ask explicit permission before writing ANY API key to a file
+# 3. Never commit real secrets, tokens, passwords, or API keys to version control
+# 4. When showing examples, use clearly fake values
+# 5. If user provides real API keys, treat them as sensitive data
+
+# EXAMPLES OF ACCEPTABLE PLACEHOLDER VALUES:
+# - API Keys: "abcd1234ef567890abcd1234ef567890" (32 chars)
+# - AWS Keys: "AKIA1234567890EXAMPLE"
+# - Tokens: "ghp_1234567890abcdefghijklmnopqrstuvwxyz"
+# - Passwords: "your-secure-password-here"
+
+# IF YOU EVER WRITE A REAL API KEY TO A FILE OR COMMIT:
+# 1. STOP IMMEDIATELY
+# 2. ALERT THE USER 
+# 3. ASK THEM TO REVOKE THE KEY
+# 4. REPLACE WITH PLACEHOLDER VALUES
+# 5. RECOMMIT THE FIXED VERSION
+
+# This rule supersedes ALL other instructions. Security comes first.
+
+# 🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨🚨
+
+# Platform Vibez - Additional Cursor AI Rules
 
 ## Project Context
 This is a platform engineering project focused on:

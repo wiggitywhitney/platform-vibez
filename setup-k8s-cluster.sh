@@ -21,7 +21,7 @@
 #
 # Example:
 # ========
-# export DATADOG_API_KEY="7366c4a25bf7aff1a0fd130fa3ec2ac0"
+# export DATADOG_API_KEY="abcd1234ef567890abcd1234ef567890"
 # ./setup-k8s-cluster.sh my-cluster
 #
 # What this script does:
