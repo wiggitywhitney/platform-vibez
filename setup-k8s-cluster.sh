@@ -2,6 +2,36 @@
 
 # Local Kubernetes Cluster Setup Script
 # This script creates a local kind cluster with all necessary prerequisites
+# and sets up Datadog infrastructure monitoring
+#
+# Prerequisites:
+# ==============
+# Before running this script, you must:
+# 1. Install Docker Desktop and ensure it's running
+# 2. Have a valid Datadog API key (32-character hex string)
+# 3. Set the DATADOG_API_KEY environment variable:
+#    export DATADOG_API_KEY="your_api_key_here"
+# 4. Install Homebrew (for automatic tool installation)
+# 5. Have kubectl and kind installed (or allow script to install them)
+#
+# Usage:
+# ======
+# export DATADOG_API_KEY="your_api_key_here"
+# ./setup-k8s-cluster.sh [cluster_name]
+#
+# Example:
+# ========
+# export DATADOG_API_KEY="7366c4a25bf7aff1a0fd130fa3ec2ac0"
+# ./setup-k8s-cluster.sh my-cluster
+#
+# What this script does:
+# ======================
+# 1. Creates a local kind Kubernetes cluster
+# 2. Installs the Datadog operator via Helm
+# 3. Creates Datadog namespace and API key secret
+# 4. Deploys DatadogAgent for infrastructure monitoring
+# 5. Configures hostname resolution for local development
+# 6. Enables APM and log collection
 
 set -e  # Exit on any error
 
@@ -15,8 +45,8 @@ NC='\033[0m' # No Color
 # Default cluster name
 CLUSTER_NAME="${1:-kind}"
 
-echo -e "${BLUE}🚀 Local Kubernetes Cluster Setup${NC}"
-echo "=================================="
+echo -e "${BLUE}🚀 Local Kubernetes Cluster Setup with Datadog Monitoring${NC}"
+echo "=========================================================="
 echo "Cluster name: ${CLUSTER_NAME}"
 echo ""
 
@@ -45,6 +75,24 @@ command_exists() {
 
 # Check prerequisites
 echo "🔍 Checking prerequisites..."
+
+# Check if DATADOG_API_KEY is set
+if [[ -z "${DATADOG_API_KEY}" ]]; then
+    print_error "DATADOG_API_KEY environment variable is not set. Please set it to your Datadog API key."
+fi
+
+# Validate API key format (should be 32 characters)
+if [[ ${#DATADOG_API_KEY} -ne 32 ]]; then
+    print_error "DATADOG_API_KEY should be exactly 32 characters long. Current length: ${#DATADOG_API_KEY}"
+fi
+
+# Validate API key with Datadog
+print_info "Validating API key with Datadog..."
+if ! curl -s -H "DD-API-KEY: ${DATADOG_API_KEY}" "https://api.datadoghq.com/api/v1/validate" | grep -q '"valid":true'; then
+    print_error "Invalid Datadog API key. Please check your API key and try again."
+fi
+
+print_status "DATADOG_API_KEY is set and validated with Datadog"
 
 # Check if Docker is installed
 if ! command_exists docker; then
@@ -76,6 +124,19 @@ if ! command_exists kubectl; then
     fi
 else
     print_status "kubectl is installed"
+fi
+
+# Check if helm is installed
+if ! command_exists helm; then
+    print_warning "helm is not installed. Installing with brew..."
+    if command_exists brew; then
+        brew install helm
+        print_status "helm installed successfully"
+    else
+        print_error "Homebrew not found. Please install helm manually"
+    fi
+else
+    print_status "helm is installed"
 fi
 
 # Check if Docker is running
@@ -165,6 +226,57 @@ kubectl wait --for=condition=Ready pods --all -n kube-system --timeout=300s
 
 print_status "All nodes and system pods are ready"
 
+# Setup Datadog Infrastructure Monitoring
+echo ""
+echo "📊 Setting up Datadog Infrastructure Monitoring..."
+echo "=================================================="
+
+# Create Datadog namespace
+print_info "Creating Datadog namespace..."
+kubectl create namespace datadog || true
+print_status "Datadog namespace created"
+
+# Create Datadog secret
+print_info "Creating Datadog API key secret..."
+kubectl create secret generic datadog-secret \
+    --from-literal api-key="${DATADOG_API_KEY}" \
+    --namespace=datadog \
+    --dry-run=client -o yaml | kubectl apply -f -
+print_status "Datadog secret created"
+
+# Add Datadog Helm repository
+print_info "Adding Datadog Helm repository..."
+helm repo add datadog https://helm.datadoghq.com || true
+helm repo update
+print_status "Datadog Helm repository added"
+
+# Install Datadog operator
+print_info "Installing Datadog operator..."
+if ! helm list -n datadog | grep -q my-datadog-operator; then
+    helm install my-datadog-operator datadog/datadog-operator --namespace datadog
+    print_status "Datadog operator installed"
+else
+    print_status "Datadog operator already installed"
+fi
+
+# Wait for operator to be ready
+print_info "Waiting for Datadog operator to be ready..."
+kubectl wait --for=condition=Ready pods -l app.kubernetes.io/name=datadog-operator -n datadog --timeout=300s
+
+# Deploy DatadogAgent configuration
+print_info "Deploying DatadogAgent configuration..."
+kubectl apply -f datadog-agent.yaml
+
+print_status "DatadogAgent configuration deployed"
+
+# Wait for Datadog agents to be ready
+print_info "Waiting for Datadog agents to be ready..."
+kubectl wait --for=condition=Ready pods -l app.kubernetes.io/name=datadog-cluster-agent -n datadog --timeout=300s
+
+# Wait a bit more for node agents (they take longer to start)
+print_info "Waiting for Datadog node agents to be ready..."
+sleep 30
+
 # Display cluster info
 echo ""
 echo "📊 Cluster Information:"
@@ -180,19 +292,32 @@ echo "🏃 System Pods:"
 kubectl get pods -n kube-system
 echo ""
 
+echo "📈 Datadog Monitoring:"
+kubectl get pods -n datadog
+echo ""
+
 # Final summary
 echo ""
-echo "🎉 SUCCESS! Your Kubernetes cluster is ready!"
-echo "============================================="
+echo "🎉 SUCCESS! Your Kubernetes cluster with Datadog monitoring is ready!"
+echo "====================================================================="
 echo ""
 echo "Cluster Details:"
 echo "  • Name: ${CLUSTER_NAME}"
 echo "  • Context: kind-${CLUSTER_NAME}"
 echo "  • API Server: $(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}')"
 echo ""
+echo "Datadog Monitoring:"
+echo "  • Namespace: datadog"
+echo "  • Infrastructure monitoring: ✅ Enabled"
+echo "  • APM (Application Performance Monitoring): ✅ Enabled"
+echo "  • Log collection: ✅ Enabled"
+echo "  • Hostname resolution: ✅ Configured for local development"
+echo ""
 echo "Quick Start Commands:"
 echo "  • kubectl get all                    # List all resources"
 echo "  • kubectl get pods -A               # List all pods in all namespaces"
+echo "  • kubectl get pods -n datadog       # Check Datadog agent status"
+echo "  • kubectl logs -n datadog -l app.kubernetes.io/name=datadog-cluster-agent  # Check Datadog logs"
 echo "  • kubectl create deployment nginx --image=nginx  # Deploy nginx"
 echo "  • kubectl expose deployment nginx --port=80 --type=NodePort  # Expose nginx"
 echo "  • kubectl port-forward service/nginx 8080:80    # Port forward to access"
@@ -202,4 +327,5 @@ echo "  • kind get clusters                  # List all clusters"
 echo "  • kind delete cluster --name ${CLUSTER_NAME}  # Delete this cluster"
 echo "  • kind export kubeconfig --name ${CLUSTER_NAME}  # Export kubeconfig"
 echo ""
-echo "Happy Kubernetes development! 🚀" 
+
+echo "Happy Kubernetes development with monitoring! 🚀📊" 
