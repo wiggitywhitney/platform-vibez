@@ -41,7 +41,7 @@
 #
 # Option 2 - Using environment variable (simpler for quick testing):
 # 1. Get your Datadog API key from https://app.datadoghq.com/account/settings#api
-# 2. Export: export DATADOG_API_KEY="your_api_key_here"
+# 2. Export: export DATADOG_API_KEY=<<your_api_key_here>>
 # 3. Run: ./setup-k8s-cluster.sh platform-vibez
 #
 # Examples:

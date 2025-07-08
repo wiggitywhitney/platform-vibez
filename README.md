@@ -1,5 +1,9 @@
 # Platform Vibez - Local Kubernetes Setup
 
+## What is Platform Vibez?
+
+Platform Vibez is an experiment in "vibe coding" a platform on Kubernetes - a playground for exploring what it feels like to build opinionated, delightful developer experiences on top of Kubernetes infrastructure.
+
 This repository contains a setup script to quickly create and configure a local Kubernetes cluster using [kind](https://kind.sigs.k8s.io/) (Kubernetes IN Docker) with monitoring and security for development.
 
 ## What This Gives You
