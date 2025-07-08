@@ -1,36 +1,57 @@
 #!/bin/bash
 
-# Local Kubernetes Cluster Setup Script
-# This script creates a local kind cluster with all necessary prerequisites
-# and sets up Datadog infrastructure monitoring
+# Platform Vibez - Local Kubernetes Cluster Setup Script
+# =======================================================
+# This script creates a local Kubernetes cluster using kind
+# (Kubernetes IN Docker) with monitoring and security for development.
+#
+# This script sets up a complete local development environment with:
+# - Kubernetes cluster (via kind)
+# - Infrastructure monitoring (via Datadog)
+# - Secure secret management (via Teller)
+# - Ingress-ready configuration for web applications
+#
+# What you'll get after running this script:
+# - A fully functional Kubernetes cluster running locally
+# - Datadog agent collecting metrics, logs, and traces
+# - Secure API key management without hardcoding secrets
+# - Ready-to-use environment for deploying applications
+# - Comprehensive monitoring dashboard in Datadog UI
 #
 # Prerequisites:
 # ==============
 # Before running this script, you must:
 # 1. Install Docker Desktop and ensure it's running
 # 2. Have a valid Datadog API key available via either:
-#    a) Teller with .teller.yml configuration (recommended for security)
-#    b) DATADOG_API_KEY environment variable
+#    a) Teller with .teller.yml configuration (RECOMMENDED for security)
+#       - Teller is a secrets management tool that securely retrieves API keys
+#       - It prevents hardcoding secrets in environment variables or scripts
+#       - Supports Google Secrets Manager, AWS Secrets Manager, Vault, etc.
+#       - See README.md for .teller.yml configuration examples
+#    b) DATADOG_API_KEY environment variable (simpler for quick testing)
 # 3. Install Homebrew (for automatic tool installation)
 # 4. Have kubectl and kind installed (or allow script to install them)
 #
 # Usage:
 # ======
-# Option 1 - Using Teller (recommended):
-# ./setup-k8s-cluster.sh [cluster_name]
+# Option 1 - Using Teller (RECOMMENDED for security):
+# 1. Configure .teller.yml with your secrets provider (see README.md)
+# 2. Authenticate: gcloud auth application-default login
+# 3. Run: ./setup-k8s-cluster.sh platform-vibez
 #
-# Option 2 - Using environment variable:
-# export DATADOG_API_KEY="your_api_key_here"
-# ./setup-k8s-cluster.sh [cluster_name]
+# Option 2 - Using environment variable (simpler for quick testing):
+# 1. Get your Datadog API key from https://app.datadoghq.com/account/settings#api
+# 2. Export: export DATADOG_API_KEY="your_api_key_here"
+# 3. Run: ./setup-k8s-cluster.sh platform-vibez
 #
-# Example:
-# ========
-# # With Teller (requires .teller.yml)
-# ./setup-k8s-cluster.sh my-cluster
+# Examples:
+# =========
+# # Secure setup with Teller
+# ./setup-k8s-cluster.sh platform-vibez
 #
-# # With environment variable
+# # Quick setup with environment variable
 # export DATADOG_API_KEY="abcd1234ef567890abcd1234ef567890"
-# ./setup-k8s-cluster.sh my-cluster
+# ./setup-k8s-cluster.sh platform-vibez
 #
 # What this script does:
 # ======================
@@ -124,6 +145,14 @@ if ! curl -s -H "DD-API-KEY: ${DATADOG_API_KEY}" "https://api.datadoghq.com/api/
 fi
 
 print_status "DATADOG_API_KEY is set and validated with Datadog"
+
+# Check for required datadog-agent.yaml file
+if [[ ! -f "datadog-agent.yaml" ]]; then
+    print_error "datadog-agent.yaml not found in current directory.
+This file contains the DatadogAgent configuration required for monitoring.
+Please ensure you're running this script from the platform-vibez repository root."
+fi
+print_status "datadog-agent.yaml configuration file found"
 
 # Check if Docker is installed
 if ! command_exists docker; then
@@ -352,9 +381,9 @@ echo "  • API Server: $(kubectl config view --minify -o jsonpath='{.clusters[0
 echo ""
 echo "Datadog Monitoring:"
 echo "  • Namespace: datadog"
-echo "  • Infrastructure monitoring: ✅ Enabled"
-echo "  • APM (Application Performance Monitoring): ✅ Enabled"
-echo "  • Log collection: ✅ Enabled"
+echo "  • Infrastructure monitoring: ✅ Enabled (CPU, memory, disk, network metrics)"
+echo "  • APM (Application Performance Monitoring): ✅ Enabled (request traces, latency)"
+echo "  • Log collection: ✅ Enabled (container and application logs)"
 echo "  • Hostname resolution: ✅ Configured for local development"
 echo ""
 echo "Quick Start Commands:"
@@ -370,6 +399,20 @@ echo "Cluster Management:"
 echo "  • kind get clusters                  # List all clusters"
 echo "  • kind delete cluster --name ${CLUSTER_NAME}  # Delete this cluster"
 echo "  • kind export kubeconfig --name ${CLUSTER_NAME}  # Export kubeconfig"
+echo ""
+
+echo "🔗 What's Next:"
+echo "  • Visit your Datadog dashboard to see infrastructure metrics"
+echo "  • Deploy the generic-app Helm chart: helm install my-app ./helm-charts/generic-app"
+echo "  • Run end-to-end tests: cd tests/e2e && chainsaw test"
+echo "  • Read the documentation: README.md"
+echo ""
+
+echo "📚 Useful Resources:"
+echo "  • Platform Vibez Documentation: https://github.com/wiggitywhitney/platform-vibez"
+echo "  • Datadog Kubernetes Monitoring: https://docs.datadoghq.com/containers/kubernetes/"
+echo "  • Kind Documentation: https://kind.sigs.k8s.io/docs/"
+echo "  • Teller Documentation: https://github.com/tellerops/teller"
 echo ""
 
 echo "Happy Kubernetes development with monitoring! 🚀📊" 
