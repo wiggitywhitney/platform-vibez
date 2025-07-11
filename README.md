@@ -115,9 +115,6 @@ helm upgrade my-app ./helm-charts/generic-app \
 # Validate the entire platform works correctly
 cd tests/e2e
 ./test-runner.sh
-
-# Results: 6 passed, 0 failed
-# ✅ All tests passed!
 ```
 
 ## What the Script Does
@@ -218,21 +215,24 @@ kubectl logs -n datadog -l app=datadog-cluster-agent
 
 ## Platform Testing
 
-The `tests/e2e/` directory contains a Chainsaw test suite that validates the entire platform:
+The `tests/e2e/` directory contains a comprehensive Chainsaw test suite organized by functionality:
 
-- **Basic deployment**: Tests that the generic Helm chart works
-- **Policy validation**: Verifies that governance policies actually block bad deployments
-- **Ingress functionality**: Tests that external access works
-- **Autoscaling**: Validates HPA configuration
-- **Edge cases**: Tests boundary conditions and upgrade scenarios
+- **Platform Governance (`policies/`)**: Tests that Kyverno policies actually block bad deployments
+- **Helm Chart Features (`application/`)**: Tests that the generic-app chart works correctly
+- **Input Validation (`validation/`)**: Tests error handling and edge cases
 
 ```bash
-# Run all tests in parallel
+# Run all tests (10 tests across 3 categories)
 cd tests/e2e
 ./test-runner.sh
 
+# Run tests by category
+./test-runner.sh policies          # Run only policy tests
+./test-runner.sh application       # Run only application tests
+./test-runner.sh validation        # Run only validation tests
+
 # Run individual test with detailed output
-chainsaw test --config chainsaw.yaml --test-file basic-deployment-test.yaml
+chainsaw test --config chainsaw.yaml --test-file policies/require-labels-policy-test.yaml
 ```
 
 ## Cluster Configuration
@@ -306,7 +306,10 @@ helm install <name> ./helm-charts/generic-app --set key=value
 helm upgrade <name> ./helm-charts/generic-app --reuse-values --set key=newvalue
 
 # Testing
-cd tests/e2e && ./test-runner.sh  # Run all platform tests
+cd tests/e2e && ./test-runner.sh            # Run all platform tests (10 tests)
+cd tests/e2e && ./test-runner.sh policies   # Run only policy tests (4 tests)
+cd tests/e2e && ./test-runner.sh application # Run only application tests (4 tests)
+cd tests/e2e && ./test-runner.sh validation # Run only validation tests (2 tests)
 
 # Debugging
 kubectl describe pod <pod-name>

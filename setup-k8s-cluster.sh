@@ -506,7 +506,7 @@ echo ""
 echo "🔗 What's Next:"
 echo "  • Visit your Datadog dashboard to see infrastructure metrics"
 echo "  • Deploy the generic-app Helm chart: helm install my-app ./helm-charts/generic-app"
-echo "  • Run end-to-end tests: cd tests/e2e && chainsaw test"
+echo "  • Run end-to-end tests: cd tests/e2e && ./test-runner.sh"
 echo "  • Read the documentation: README.md"
 echo ""
 

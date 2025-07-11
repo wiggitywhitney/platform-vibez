@@ -1,0 +1,175 @@
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: enforce-cpu-limits-policy-test
+spec:
+  description: Validate that the enforce-cpu-limits Kyverno policy is working correctly
+  steps:
+  
+  - name: test-low-cpu-blocked
+    try:
+    - description: Deploy with CPU limit too low should be blocked
+      script:
+        content: |
+          # This should fail due to CPU limit below 100m
+          set +e
+          kubectl apply -f - <<EOF
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: low-cpu-test
+            namespace: $NAMESPACE
+            labels:
+              team: platform
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: test
+            template:
+              metadata:
+                labels:
+                  app: test
+              spec:
+                containers:
+                - name: app
+                  image: nginx:1.25.3
+                  resources:
+                    limits:
+                      cpu: 50m
+                      memory: 128Mi
+          EOF
+          
+          # Check if deployment was rejected
+          if kubectl get deployment low-cpu-test -n $NAMESPACE >/dev/null 2>&1; then
+            echo "ERROR: Deployment with low CPU limit was allowed - policy not working"
+            exit 1
+          else
+            echo "SUCCESS: Deployment with low CPU limit was correctly blocked"
+            exit 0
+          fi
+    finally:
+    - description: Clean up failed deployment attempt
+      script:
+        content: |
+          kubectl delete deployment low-cpu-test -n $NAMESPACE || true
+
+  - name: test-high-cpu-blocked
+    try:
+    - description: Deploy with CPU limit too high should be blocked
+      script:
+        content: |
+          # This should fail due to CPU limit above 4000m
+          set +e
+          kubectl apply -f - <<EOF
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: high-cpu-test
+            namespace: $NAMESPACE
+            labels:
+              team: platform
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: test
+            template:
+              metadata:
+                labels:
+                  app: test
+              spec:
+                containers:
+                - name: app
+                  image: nginx:1.25.3
+                  resources:
+                    limits:
+                      cpu: 5000m
+                      memory: 128Mi
+          EOF
+          
+          # Check if deployment was rejected
+          if kubectl get deployment high-cpu-test -n $NAMESPACE >/dev/null 2>&1; then
+            echo "ERROR: Deployment with high CPU limit was allowed - policy not working"
+            exit 1
+          else
+            echo "SUCCESS: Deployment with high CPU limit was correctly blocked"
+            exit 0
+          fi
+    finally:
+    - description: Clean up failed deployment attempt
+      script:
+        content: |
+          kubectl delete deployment high-cpu-test -n $NAMESPACE || true
+
+  - name: test-valid-cpu-limits-allowed
+    try:
+    - description: Deploy with valid CPU limits should be allowed
+      script:
+        content: |
+          # Test minimum valid CPU (100m)
+          kubectl apply -f - <<EOF
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: min-cpu-test
+            namespace: $NAMESPACE
+            labels:
+              team: platform
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: test-min
+            template:
+              metadata:
+                labels:
+                  app: test-min
+              spec:
+                containers:
+                - name: app
+                  image: nginx:1.25.3
+                  resources:
+                    limits:
+                      cpu: 100m
+                      memory: 128Mi
+          EOF
+          
+          # Test maximum valid CPU (4000m)
+          kubectl apply -f - <<EOF
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: max-cpu-test
+            namespace: $NAMESPACE
+            labels:
+              team: platform
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: test-max
+            template:
+              metadata:
+                labels:
+                  app: test-max
+              spec:
+                containers:
+                - name: app
+                  image: nginx:1.25.3
+                  resources:
+                    limits:
+                      cpu: 4000m
+                      memory: 128Mi
+          EOF
+          
+          # Verify both deployments were created
+          kubectl get deployment min-cpu-test -n $NAMESPACE
+          kubectl get deployment max-cpu-test -n $NAMESPACE
+          echo "SUCCESS: Deployments with valid CPU limits were allowed"
+    finally:
+    - description: Clean up successful deployments
+      script:
+        content: |
+          kubectl delete deployment min-cpu-test -n $NAMESPACE || true
+          kubectl delete deployment max-cpu-test -n $NAMESPACE || true 
