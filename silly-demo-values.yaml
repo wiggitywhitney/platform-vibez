@@ -1,0 +1,33 @@
+# Silly Demo Application - Platform Vibez Deployment
+# ==================================================
+# Values for deploying ghcr.io/vfarcic/silly-demo using the generic-app chart
+
+app:
+  name: "silly-demo"
+
+image:
+  repository: ghcr.io/vfarcic/silly-demo
+  tag: v1.5.133
+
+container:
+  port: 8080
+  env:
+    - name: PORT
+      value: "8080"
+
+healthChecks:
+  path: "/"
+
+resources:
+  cpu: "200m"
+  memory: "256Mi"
+
+# Enable ingress for external access
+ingress:
+  enabled: true
+  hosts:
+    - host: silly-demo.127.0.0.1.nip.io
+
+# Optional: Enable autoscaling
+autoscaling:
+  enabled: false 

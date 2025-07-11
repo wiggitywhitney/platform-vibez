@@ -13,6 +13,7 @@
 #
 # What you'll get after running this script:
 # - A fully functional Kubernetes cluster running locally
+# - nginx ingress controller for external application access
 # - Datadog agent collecting metrics and logs (traces require app deployment)
 # - Secure API key management without hardcoding secrets
 # - Ready-to-use environment for deploying applications
@@ -56,12 +57,13 @@
 # What this script does:
 # ======================
 # 1. Creates a local kind Kubernetes cluster
-# 2. Installs the Datadog operator via Helm
-# 3. Creates Datadog namespace and API key secret
-# 4. Deploys DatadogAgent for infrastructure monitoring
-# 5. Configures hostname resolution for local development
-# 6. Enables APM configuration and log collection
-# 7. Verifies Datadog monitoring setup
+# 2. Installs nginx ingress controller for external access
+# 3. Installs the Datadog operator via Helm
+# 4. Creates Datadog namespace and API key secret
+# 5. Deploys DatadogAgent for infrastructure monitoring
+# 6. Configures hostname resolution for local development
+# 7. Enables APM configuration and log collection
+# 8. Verifies Datadog monitoring setup
 
 set -e  # Exit on any error
 
@@ -315,6 +317,21 @@ kubectl wait --for=condition=Ready pods --all -n kube-system --timeout=300s
 
 print_status "All nodes and system pods are ready"
 
+# Install nginx ingress controller
+echo ""
+echo "🌐 Installing nginx ingress controller..."
+echo "========================================"
+print_info "Installing nginx ingress controller for kind..."
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+
+print_info "Waiting for ingress controller to be ready..."
+kubectl wait --namespace ingress-nginx \
+  --for=condition=ready pod \
+  --selector=app.kubernetes.io/component=controller \
+  --timeout=300s
+
+print_status "nginx ingress controller installed and ready"
+
 # Setup Datadog Infrastructure Monitoring
 echo ""
 echo "📊 Setting up Datadog Infrastructure Monitoring..."
@@ -413,6 +430,10 @@ echo "  • Name: ${CLUSTER_NAME}"
 echo "  • Context: kind-${CLUSTER_NAME}"
 echo "  • API Server: $(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}')"
 echo "  • Kubeconfig: ${KUBECONFIG_FILE}"
+echo ""
+echo "Ingress Controller:"
+echo "  • nginx ingress controller: ✅ Active (port 80/443 mapped to localhost)"
+echo "  • External access: ✅ Ready for applications with ingress enabled"
 echo ""
 echo "Datadog Monitoring:"
 echo "  • Namespace: datadog"
