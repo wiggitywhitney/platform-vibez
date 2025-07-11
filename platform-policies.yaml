@@ -48,7 +48,6 @@ spec:
       - resources:
           kinds:
           - Deployment
-          - Pod
     validate:
       message: "Container images must not use 'latest' tag. Specify a version tag."
       deny:

@@ -18,6 +18,7 @@ spec:
             --set healthChecks.path=/health \
             --set resources.cpu=200m \
             --set resources.memory=256Mi \
+            --set labels.team=platform
            
     
     - description: Verify service is created with auto-synced port
@@ -72,6 +73,7 @@ spec:
             --set healthChecks.path=/api/health \
             --set resources.cpu=100m \
             --set resources.memory=128Mi \
+            --set labels.team=platform
            
     
     - description: Verify both liveness and readiness probes are created
@@ -123,6 +125,7 @@ spec:
             --set healthChecks.path=/ \
             --set resources.cpu=1000m \
             --set resources.memory=2048Mi \
+            --set labels.team=platform
            
     
     - description: Verify resource requests are auto-calculated to 50% of limits
@@ -163,7 +166,8 @@ spec:
             --set healthChecks.path=/ \
             --set resources.cpu=100m \
             --set resources.memory=128Mi \
-            --set-json 'container.env=[{"name":"ENV_VAR","value":"test-value"},{"name":"API_URL","value":"https://api.example.com"}]' \
+            --set labels.team=platform \
+            --set-json 'container.env=[{"name":"ENV_VAR","value":"test-value"},{"name":"API_URL","value":"https://api.example.com"}]'
            
     
     - description: Verify environment variables are set

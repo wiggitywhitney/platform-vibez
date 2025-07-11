@@ -18,7 +18,7 @@ spec:
             --set healthChecks.path=/ \
             --set resources.cpu=100m \
             --set resources.memory=128Mi \
-           
+            --set labels.team=platform
     
     - description: Verify minimum CPU deployment works
       assert:
@@ -58,7 +58,7 @@ spec:
             --set healthChecks.path=/ \
             --set resources.cpu=100m \
             --set resources.memory=128Mi \
-           
+            --set labels.team=platform
     
     - description: Verify port auto-sync works with high port
       assert:
@@ -84,8 +84,9 @@ spec:
             --set healthChecks.path=/ \
             --set resources.cpu=100m \
             --set resources.memory=128Mi \
+            --set labels.team=platform \
             --set ingress.enabled=true \
-            --set ingress.hosts[0].host=highport.example.com \
+            --set ingress.hosts[0].host=highport.example.com
            
     
     - description: Verify ingress backend port matches
@@ -126,7 +127,7 @@ spec:
             --set healthChecks.path=/ \
             --set resources.cpu=100m \
             --set resources.memory=128Mi \
-           
+            --set labels.team=platform
     
     - description: Upgrade to new version with different resources
       script:
@@ -139,7 +140,7 @@ spec:
             --set healthChecks.path=/health \
             --set resources.cpu=200m \
             --set resources.memory=256Mi \
-           
+            --set labels.team=platform
     
     - description: Verify upgrade maintained platform features
       assert:
@@ -203,7 +204,7 @@ spec:
             --set healthChecks.path=/api/v1/health/live \
             --set resources.cpu=100m \
             --set resources.memory=128Mi \
-           
+            --set labels.team=platform
     
     - description: Verify complex health check path works
       assert:

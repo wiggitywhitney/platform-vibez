@@ -17,7 +17,8 @@ spec:
             --set container.port=80 \
             --set healthChecks.path=/ \
             --set resources.cpu=100m \
-            --set resources.memory=128Mi
+            --set resources.memory=128Mi \
+            --set labels.team=platform
     
     - description: Verify deployment is created
       assert:
