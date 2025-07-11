@@ -1,0 +1,25 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-labels
+  annotations:
+    policies.kyverno.io/title: Require Labels
+    policies.kyverno.io/category: Platform Governance
+    policies.kyverno.io/description: >-
+      Ensures all deployments have required platform labels for observability and governance.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+  - name: check-team-label
+    match:
+      any:
+      - resources:
+          kinds:
+          - Deployment
+    validate:
+      message: "Deployment must have a 'team' label"
+      pattern:
+        metadata:
+          labels:
+            team: "?*" 

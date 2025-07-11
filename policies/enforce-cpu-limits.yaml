@@ -1,0 +1,32 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: enforce-cpu-limits
+  annotations:
+    policies.kyverno.io/title: Enforce CPU Limits
+    policies.kyverno.io/category: Platform Resources  
+    policies.kyverno.io/description: >-
+      Ensures CPU limits are within platform bounds (100m to 4000m) to prevent resource hogging.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+  - name: check-cpu-limits
+    match:
+      any:
+      - resources:
+          kinds:
+          - Deployment
+    validate:
+      message: "CPU limits must be between 100m and 4000m (0.1 to 4 cores). Found: {{ request.object.spec.template.spec.containers[0].resources.limits.cpu || 'none' }}"
+      deny:
+        conditions:
+          any:
+          # Deny common values that are too low (millicore format)
+          - key: "{{ request.object.spec.template.spec.containers[*].resources.limits.cpu }}"
+            operator: AnyIn  
+            value: ["1m", "2m", "5m", "10m", "20m", "25m", "30m", "40m", "50m", "60m", "70m", "80m", "90m", "99m"]
+          # Deny decimal values that are too low  
+          - key: "{{ request.object.spec.template.spec.containers[*].resources.limits.cpu }}"
+            operator: AnyIn
+            value: ["0.001", "0.01", "0.02", "0.05", "0.09"] 

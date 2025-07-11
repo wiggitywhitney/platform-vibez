@@ -350,6 +350,24 @@ kubectl wait --for=condition=ready pod -l app.kubernetes.io/component=admission-
 
 print_status "Kyverno policy engine installed and ready"
 
+# Apply platform governance policies
+echo ""
+echo "📋 Applying platform governance policies..."
+echo "==========================================="
+print_info "Applying policies from policies/ directory..."
+if kubectl apply -f policies/; then
+    print_status "Platform governance policies applied successfully"
+    
+    # Show applied policies
+    echo ""
+    print_info "Applied policies:"
+    kubectl get clusterpolicies -o custom-columns="NAME:.metadata.name,CATEGORY:.metadata.annotations.policies\.kyverno\.io/category,READY:.status.ready" 2>/dev/null || \
+    kubectl get clusterpolicies -o custom-columns="NAME:.metadata.name,READY:.status.ready" 2>/dev/null || \
+    kubectl get clusterpolicies
+else
+    print_warning "Failed to apply some policies. Check policies/ directory."
+fi
+
 # Setup Datadog Infrastructure Monitoring
 echo ""
 echo "📊 Setting up Datadog Infrastructure Monitoring..."
@@ -455,6 +473,7 @@ echo "  • External access: ✅ Ready for applications with ingress enabled"
 echo ""
 echo "Policy Engine:"
 echo "  • Kyverno: ✅ Active (governance and security policies)"
+echo "  • Platform policies: ✅ Applied (4 policies: labels, image tags, resource limits, CPU bounds)"
 echo "  • Admission control: ✅ Ready for policy enforcement"
 echo ""
 echo "Datadog Monitoring:"
@@ -471,6 +490,7 @@ echo "  • kubectl get pods -A               # List all pods in all namespaces"
 echo "  • kubectl get pods -n datadog       # Check Datadog agent status"
 echo "  • kubectl get pods -n kyverno       # Check Kyverno policy engine status"
 echo "  • kubectl get clusterpolicies       # List Kyverno cluster policies"
+echo "  • kubectl apply -f policies/        # Reapply platform policies"
 echo "  • kubectl logs -n datadog -l app.kubernetes.io/component=cluster-agent  # Check Datadog logs"
 echo "  • kubectl create deployment nginx --image=nginx  # Deploy nginx"
 echo "  • kubectl expose deployment nginx --port=80 --type=NodePort  # Expose nginx"

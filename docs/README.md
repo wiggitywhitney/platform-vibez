@@ -27,7 +27,7 @@ Welcome to the Platform Vibez documentation! This directory contains comprehensi
 
 ### Configuration Files
 - **Datadog Config**: `../datadog-agent.yaml` - Monitoring configuration
-- **Platform Policies**: `../platform-policies.yaml` - Governance policies
+- **Platform Policies**: `../policies/` - Governance policies directory
 - **Teller Config**: `../.teller.yml` - Secret management configuration
 
 ## 💡 Need Help?
