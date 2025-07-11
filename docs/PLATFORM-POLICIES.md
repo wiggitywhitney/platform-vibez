@@ -2,6 +2,8 @@
 
 This document describes the platform governance policies enforced by Kyverno.
 
+> **✅ Status**: All policies are now working correctly! Recent fixes resolved issues with latest tag detection and CPU limits validation.
+
 ## 🛡️ Active Policies
 
 ### 1. Require Labels (`require-labels`)
@@ -41,6 +43,23 @@ spec:
             memory: "512Mi" # Required
 ```
 
+### 4. Enforce CPU Limits (`enforce-cpu-limits`)
+**Purpose**: Prevent resource hogging and ensure fair resource allocation  
+**Requirement**: CPU limits must be between 100m and 4000m (0.1 to 4 cores)  
+**Example**:
+```yaml
+spec:
+  template:
+    spec:
+      containers:
+      - name: app
+        resources:
+          limits:
+            cpu: "200m"     # ✅ Valid - between 100m-4000m
+            # cpu: "50m"    # ❌ Blocked - too low
+            # cpu: "5000m"  # ❌ Blocked - too high
+```
+
 ## 🎯 Compliant Deployment Example
 
 ```yaml
@@ -49,18 +68,20 @@ kind: Deployment
 metadata:
   name: compliant-app
   labels:
-    team: "platform"  # Required by require-labels
+    team: "platform"       # ✅ Required by require-labels
 spec:
   template:
     spec:
       containers:
       - name: app
-        image: nginx:1.25.3  # Specific version (not latest)
+        image: nginx:1.25.3  # ✅ Specific version (not latest)
         resources:
           limits:
-            cpu: "200m"      # Required by require-resource-limits
-            memory: "256Mi"  # Required by require-resource-limits
+            cpu: "200m"      # ✅ Between 100m-4000m (enforce-cpu-limits)
+            memory: "256Mi"  # ✅ Required by require-resource-limits
 ```
+
+This deployment satisfies all four platform policies and will be accepted.
 
 ## 🔧 Policy Management
 
