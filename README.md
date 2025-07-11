@@ -16,6 +16,15 @@ A complete local Kubernetes development environment with:
 
 This is useful for learning Kubernetes, developing applications, or experimenting with containerized deployments without needing cloud resources.
 
+## 📚 Documentation
+
+📖 **[Complete Documentation Index](docs/README.md)** - All platform documentation in one place
+
+### Key Documentation:
+- **[Platform Policies](docs/PLATFORM-POLICIES.md)** - Governance policies enforced by Kyverno
+- **[Generic App Chart](helm-charts/generic-app/README.md)** - Opinionated Helm chart for stateless applications
+- **[E2E Testing](tests/e2e/README.md)** - Chainsaw test suite for platform validation
+
 ## Features
 
 - ✅ **Secure Secret Management**: Teller integration with Google Secrets Manager
