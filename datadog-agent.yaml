@@ -26,3 +26,5 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.hostIP 
+        - name: DD_KUBELET_TLS_VERIFY
+          value: "false"

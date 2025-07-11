@@ -13,7 +13,7 @@
 #
 # What you'll get after running this script:
 # - A fully functional Kubernetes cluster running locally
-# - Datadog agent collecting metrics, logs, and traces
+# - Datadog agent collecting metrics and logs (traces require app deployment)
 # - Secure API key management without hardcoding secrets
 # - Ready-to-use environment for deploying applications
 # - Comprehensive monitoring dashboard in Datadog UI
@@ -60,7 +60,8 @@
 # 3. Creates Datadog namespace and API key secret
 # 4. Deploys DatadogAgent for infrastructure monitoring
 # 5. Configures hostname resolution for local development
-# 6. Enables APM and log collection
+# 6. Enables APM configuration and log collection
+# 7. Verifies Datadog monitoring setup
 
 set -e  # Exit on any error
 
@@ -248,8 +249,15 @@ if kind get clusters 2>/dev/null | grep -q "^${CLUSTER_NAME}$"; then
         print_status "Existing cluster deleted"
     else
         print_info "Using existing cluster"
-        kind export kubeconfig --name "${CLUSTER_NAME}"
-        print_status "kubectl configured for existing cluster"
+        
+        # Set up local kubeconfig for existing cluster
+        KUBECONFIG_FILE="./${CLUSTER_NAME}-kubeconfig.yaml"
+        
+        kind export kubeconfig --name "${CLUSTER_NAME}" --kubeconfig "${KUBECONFIG_FILE}"
+        export KUBECONFIG="${KUBECONFIG_FILE}"
+        print_status "Kubeconfig exported to: ${KUBECONFIG_FILE}"
+        print_status "KUBECONFIG environment variable set"
+        
         echo ""
         echo "🎉 Cluster '${CLUSTER_NAME}' is ready!"
         kubectl cluster-info
@@ -261,6 +269,7 @@ fi
 echo ""
 echo "🏗️  Creating new cluster..."
 print_info "Creating kind cluster '${CLUSTER_NAME}'..."
+KUBECONFIG_FILE="./${CLUSTER_NAME}-kubeconfig.yaml"
 
 # Create cluster with custom configuration
 kind create cluster --name "${CLUSTER_NAME}" --config - <<EOF
@@ -284,6 +293,13 @@ nodes:
 EOF
 
 print_status "Cluster created successfully"
+
+# Export kubeconfig to local file and set environment variable
+print_info "Exporting kubeconfig to local file..."
+kind export kubeconfig --name "${CLUSTER_NAME}" --kubeconfig "${KUBECONFIG_FILE}"
+export KUBECONFIG="${KUBECONFIG_FILE}"
+print_status "Kubeconfig exported to: ${KUBECONFIG_FILE}"
+print_status "KUBECONFIG environment variable set"
 
 # Verify cluster
 echo ""
@@ -350,6 +366,24 @@ kubectl wait --for=condition=Ready pods -l app.kubernetes.io/name=datadog-cluste
 print_info "Waiting for Datadog node agents to be ready..."
 sleep 30
 
+# Verify Datadog setup
+echo ""
+echo "🔍 Verifying Datadog Setup..."
+echo "=============================="
+if [[ -f "verify-datadog.sh" ]]; then
+    # Ensure script is executable
+    chmod +x verify-datadog.sh
+    if ./verify-datadog.sh; then
+        print_status "Datadog monitoring verification completed successfully"
+    else
+        print_warning "Datadog monitoring verification detected some issues"
+        print_info "Check the output above for details"
+    fi
+else
+    print_warning "verify-datadog.sh not found - skipping verification"
+    print_info "You can manually verify with: kubectl get pods -n datadog"
+fi
+
 # Display cluster info
 echo ""
 echo "📊 Cluster Information:"
@@ -378,19 +412,21 @@ echo "Cluster Details:"
 echo "  • Name: ${CLUSTER_NAME}"
 echo "  • Context: kind-${CLUSTER_NAME}"
 echo "  • API Server: $(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}')"
+echo "  • Kubeconfig: ${KUBECONFIG_FILE}"
 echo ""
 echo "Datadog Monitoring:"
 echo "  • Namespace: datadog"
-echo "  • Infrastructure monitoring: ✅ Enabled (CPU, memory, disk, network metrics)"
-echo "  • APM (Application Performance Monitoring): ✅ Enabled (request traces, latency)"
-echo "  • Log collection: ✅ Enabled (container and application logs)"
+echo "  • Infrastructure monitoring: ✅ Active (CPU, memory, disk, network metrics)"
+echo "  • APM (Application Performance Monitoring): ✅ Configured (requires app deployment for traces)"
+echo "  • Log collection: ✅ Active (container and application logs)"
 echo "  • Hostname resolution: ✅ Configured for local development"
 echo ""
 echo "Quick Start Commands:"
+echo "  • ./verify-datadog.sh               # Verify Datadog monitoring status"
 echo "  • kubectl get all                    # List all resources"
 echo "  • kubectl get pods -A               # List all pods in all namespaces"
 echo "  • kubectl get pods -n datadog       # Check Datadog agent status"
-echo "  • kubectl logs -n datadog -l app.kubernetes.io/name=datadog-cluster-agent  # Check Datadog logs"
+echo "  • kubectl logs -n datadog -l app.kubernetes.io/component=cluster-agent  # Check Datadog logs"
 echo "  • kubectl create deployment nginx --image=nginx  # Deploy nginx"
 echo "  • kubectl expose deployment nginx --port=80 --type=NodePort  # Expose nginx"
 echo "  • kubectl port-forward service/nginx 8080:80    # Port forward to access"
@@ -398,7 +434,8 @@ echo ""
 echo "Cluster Management:"
 echo "  • kind get clusters                  # List all clusters"
 echo "  • kind delete cluster --name ${CLUSTER_NAME}  # Delete this cluster"
-echo "  • kind export kubeconfig --name ${CLUSTER_NAME}  # Export kubeconfig"
+echo "  • export KUBECONFIG=${KUBECONFIG_FILE}  # Use this cluster in new shell session"
+echo "  • kind export kubeconfig --name ${CLUSTER_NAME} --kubeconfig ${KUBECONFIG_FILE}  # Re-export kubeconfig"
 echo ""
 
 echo "🔗 What's Next:"
