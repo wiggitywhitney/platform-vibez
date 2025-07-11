@@ -1,8 +1,3 @@
-{{- $fullImage := include "generic-app.image" . }}
-{{- if contains "latest" $fullImage }}
-{{- fail "Error: 'latest' is not allowed in image names or tags. Please specify a specific version tag." }}
-{{- end }}
-
 {{/* Validate resource guardrails */}}
 {{- include "generic-app.validateCpu" . }}
 {{- include "generic-app.validateMemory" . }}

@@ -5,6 +5,10 @@
 app:
   name: "silly-demo"
 
+# Platform governance labels  
+labels:
+  team: "platform"
+
 image:
   repository: ghcr.io/vfarcic/silly-demo
   tag: v1.5.133

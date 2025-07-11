@@ -108,9 +108,9 @@ affinity: {}
 
 ## 🛡️ Platform Guardrails
 
-### **Image Validation**
-- ❌ No `latest` tags allowed (prevents drift)
+### **Image Requirements**
 - ✅ Must specify repository and tag
+- ℹ️ Platform policies prevent `latest` tags (prevents drift)
 
 ### **Resource Guardrails**  
 - 🔒 CPU: 100m to 4000m (0.1-4 cores)

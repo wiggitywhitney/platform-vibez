@@ -14,6 +14,7 @@
 # What you'll get after running this script:
 # - A fully functional Kubernetes cluster running locally
 # - nginx ingress controller for external application access
+# - Kyverno policy engine for governance and security
 # - Datadog agent collecting metrics and logs (traces require app deployment)
 # - Secure API key management without hardcoding secrets
 # - Ready-to-use environment for deploying applications
@@ -58,12 +59,13 @@
 # ======================
 # 1. Creates a local kind Kubernetes cluster
 # 2. Installs nginx ingress controller for external access
-# 3. Installs the Datadog operator via Helm
-# 4. Creates Datadog namespace and API key secret
-# 5. Deploys DatadogAgent for infrastructure monitoring
-# 6. Configures hostname resolution for local development
-# 7. Enables APM configuration and log collection
-# 8. Verifies Datadog monitoring setup
+# 3. Installs Kyverno policy engine for governance
+# 4. Installs the Datadog operator via Helm
+# 5. Creates Datadog namespace and API key secret
+# 6. Deploys DatadogAgent for infrastructure monitoring
+# 7. Configures hostname resolution for local development
+# 8. Enables APM configuration and log collection
+# 9. Verifies Datadog monitoring setup
 
 set -e  # Exit on any error
 
@@ -332,6 +334,22 @@ kubectl wait --namespace ingress-nginx \
 
 print_status "nginx ingress controller installed and ready"
 
+# Install Kyverno policy engine
+echo ""
+echo "🛡️  Installing Kyverno policy engine..."
+echo "====================================="
+print_info "Adding Kyverno Helm repository..."
+helm repo add kyverno https://kyverno.github.io/kyverno/ || true
+helm repo update
+
+print_info "Installing Kyverno..."
+helm install kyverno kyverno/kyverno --namespace kyverno --create-namespace
+
+print_info "Waiting for Kyverno to be ready..."
+kubectl wait --for=condition=ready pod -l app.kubernetes.io/component=admission-controller -n kyverno --timeout=300s
+
+print_status "Kyverno policy engine installed and ready"
+
 # Setup Datadog Infrastructure Monitoring
 echo ""
 echo "📊 Setting up Datadog Infrastructure Monitoring..."
@@ -435,6 +453,10 @@ echo "Ingress Controller:"
 echo "  • nginx ingress controller: ✅ Active (port 80/443 mapped to localhost)"
 echo "  • External access: ✅ Ready for applications with ingress enabled"
 echo ""
+echo "Policy Engine:"
+echo "  • Kyverno: ✅ Active (governance and security policies)"
+echo "  • Admission control: ✅ Ready for policy enforcement"
+echo ""
 echo "Datadog Monitoring:"
 echo "  • Namespace: datadog"
 echo "  • Infrastructure monitoring: ✅ Active (CPU, memory, disk, network metrics)"
@@ -447,6 +469,8 @@ echo "  • ./verify-datadog.sh               # Verify Datadog monitoring status
 echo "  • kubectl get all                    # List all resources"
 echo "  • kubectl get pods -A               # List all pods in all namespaces"
 echo "  • kubectl get pods -n datadog       # Check Datadog agent status"
+echo "  • kubectl get pods -n kyverno       # Check Kyverno policy engine status"
+echo "  • kubectl get clusterpolicies       # List Kyverno cluster policies"
 echo "  • kubectl logs -n datadog -l app.kubernetes.io/component=cluster-agent  # Check Datadog logs"
 echo "  • kubectl create deployment nginx --image=nginx  # Deploy nginx"
 echo "  • kubectl expose deployment nginx --port=80 --type=NodePort  # Expose nginx"

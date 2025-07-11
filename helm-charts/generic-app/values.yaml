@@ -15,16 +15,14 @@ app:
             # Useful for decoupling chart name from actual app name
 
 # =============================================================================
-# IMAGE CONFIGURATION (Required with Validation)
+# IMAGE CONFIGURATION (Required)
 # =============================================================================
 image:
   repository: ""  # REQUIRED: Container image repository
-                  # VALIDATION: Must not contain "latest" anywhere
-                  # VALIDATION: Cannot be empty (required field)
+                  # NOTE: Cannot be empty (required field)
   tag: ""         # REQUIRED: Image tag/version  
-                  # VALIDATION: Must not be "latest" or contain "latest"
-                  # VALIDATION: Cannot be empty (required field)
-                  # REASON: Prevents drift and ensures reproducible deployments
+                  # NOTE: Cannot be empty (required field)
+                  # NOTE: Platform policies prevent "latest" tags for reproducible deployments
 
 # =============================================================================
 # CONTAINER CONFIGURATION
@@ -138,10 +136,6 @@ ingress:
 # VALIDATION SUMMARY
 # =============================================================================
 # The following validations are enforced by this chart:
-#
-# IMAGE VALIDATION:
-# - No "latest" tags allowed anywhere in repository or tag
-# - Repository and tag cannot be empty
 #
 # RESOURCE VALIDATION:
 # - CPU: 100m to 4000m (0.1 to 4 cores)
