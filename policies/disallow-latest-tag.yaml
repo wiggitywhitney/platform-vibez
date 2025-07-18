@@ -6,7 +6,7 @@ metadata:
     policies.kyverno.io/title: Disallow Latest Tag
     policies.kyverno.io/category: Platform Security
     policies.kyverno.io/description: >-
-      Prevents use of 'latest' tag in container images for reproducible deployments.
+      Prevents use of 'latest' tag in container images for reproducible deployments in team namespaces.
 spec:
   validationFailureAction: Enforce
   background: true
@@ -17,6 +17,9 @@ spec:
       - resources:
           kinds:
           - Deployment
+          namespaces:
+          - "team-*"
+          - "chainsaw-*"
     validate:
       message: "Container images must not use 'latest' tag. Specify a version tag."
       deny:

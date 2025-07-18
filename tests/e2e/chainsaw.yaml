@@ -8,4 +8,8 @@ spec:
   failFast: false
   
   # Cleanup
-  skipDelete: false 
+  skipDelete: false
+  
+  # Timeouts
+  timeouts:
+    cleanup: 60s 

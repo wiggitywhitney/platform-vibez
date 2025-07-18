@@ -6,7 +6,7 @@ metadata:
     policies.kyverno.io/title: Require Resource Limits
     policies.kyverno.io/category: Platform Resources
     policies.kyverno.io/description: >-
-      Ensures all containers have CPU and memory limits for resource management.
+      Ensures all containers in team namespaces have CPU and memory limits for resource management.
 spec:
   validationFailureAction: Enforce
   background: true
@@ -17,6 +17,9 @@ spec:
       - resources:
           kinds:
           - Deployment
+          namespaces:
+          - "team-*"
+          - "chainsaw-*"
     validate:
       message: "All containers must have CPU and memory limits specified"
       pattern:

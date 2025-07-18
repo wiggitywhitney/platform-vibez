@@ -6,7 +6,7 @@ metadata:
     policies.kyverno.io/title: Require Labels
     policies.kyverno.io/category: Platform Governance
     policies.kyverno.io/description: >-
-      Ensures all deployments have required platform labels for observability and governance.
+      Ensures all deployments in team namespaces have required platform labels for observability and governance.
 spec:
   validationFailureAction: Enforce
   background: true
@@ -17,6 +17,9 @@ spec:
       - resources:
           kinds:
           - Deployment
+          namespaces:
+          - "team-*"
+          - "chainsaw-*"
     validate:
       message: "Deployment must have a 'team' label"
       pattern:
