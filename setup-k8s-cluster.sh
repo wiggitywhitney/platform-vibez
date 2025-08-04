@@ -9,15 +9,16 @@
 # - Kubernetes cluster (via kind)
 # - Infrastructure monitoring (via Datadog)
 # - Secure secret management (via Teller)
-# - Ingress-ready configuration for web applications
+# - Knative serverless platform for applications
 #
 # What you'll get after running this script:
 # - A fully functional Kubernetes cluster running locally
-# - nginx ingress controller for external application access
+# - Knative Serving for serverless applications (with Kourier networking)
+# - Knative Eventing for event-driven architectures
 # - Kyverno policy engine for governance and security
 # - Datadog agent collecting metrics and logs (traces require app deployment)
 # - Secure API key management without hardcoding secrets
-# - Ready-to-use environment for deploying applications
+# - Ready-to-use environment for deploying serverless applications
 # - Comprehensive monitoring dashboard in Datadog UI
 #
 # Prerequisites:
@@ -58,14 +59,15 @@
 # What this script does:
 # ======================
 # 1. Creates a local kind Kubernetes cluster
-# 2. Installs nginx ingress controller for external access
-# 3. Installs Kyverno policy engine for governance
-# 4. Installs the Datadog operator via Helm
-# 5. Creates Datadog namespace and API key secret
-# 6. Deploys DatadogAgent for infrastructure monitoring
-# 7. Configures hostname resolution for local development
-# 8. Enables APM configuration and log collection
-# 9. Verifies Datadog monitoring setup
+# 2. Installs Knative Serving and Eventing for serverless applications
+# 3. Installs Kourier as the Knative networking layer
+# 4. Installs Kyverno policy engine for governance
+# 5. Installs the Datadog operator via Helm
+# 6. Creates Datadog namespace and API key secret
+# 7. Deploys DatadogAgent for infrastructure monitoring
+# 8. Configures hostname resolution for local development
+# 9. Enables APM configuration and log collection
+# 10. Verifies Datadog monitoring setup
 
 set -e  # Exit on any error
 
@@ -288,10 +290,11 @@ nodes:
       kubeletExtraArgs:
         node-labels: "ingress-ready=true"
   extraPortMappings:
-  - containerPort: 80
+  # Knative/Kourier ports for serverless applications
+  - containerPort: 31080
     hostPort: 80
     protocol: TCP
-  - containerPort: 443
+  - containerPort: 31443
     hostPort: 443
     protocol: TCP
 EOF
@@ -319,20 +322,47 @@ kubectl wait --for=condition=Ready pods --all -n kube-system --timeout=300s
 
 print_status "All nodes and system pods are ready"
 
-# Install nginx ingress controller
+# Install Knative
 echo ""
-echo "🌐 Installing nginx ingress controller..."
-echo "========================================"
-print_info "Installing nginx ingress controller for kind..."
-kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+echo "🚀 Installing Knative..."
+echo "======================="
 
-print_info "Waiting for ingress controller to be ready..."
-kubectl wait --namespace ingress-nginx \
-  --for=condition=ready pod \
-  --selector=app.kubernetes.io/component=controller \
-  --timeout=300s
+# Install Knative Serving
+print_info "Installing Knative Serving CRDs..."
+kubectl apply -f https://github.com/knative/serving/releases/latest/download/serving-crds.yaml
 
-print_status "nginx ingress controller installed and ready"
+print_info "Installing Knative Serving core..."
+kubectl apply -f https://github.com/knative/serving/releases/latest/download/serving-core.yaml
+
+# Install Kourier as the networking layer
+print_info "Installing Kourier networking layer..."
+kubectl apply -f https://github.com/knative/net-kourier/releases/latest/download/kourier.yaml
+
+# Configure Kourier as the default networking layer
+kubectl patch configmap/config-network \
+  --namespace knative-serving \
+  --type merge \
+  --patch '{"data":{"ingress-class":"kourier.ingress.networking.knative.dev"}}'
+
+# Install Knative Eventing
+print_info "Installing Knative Eventing CRDs..."
+kubectl apply -f https://github.com/knative/eventing/releases/latest/download/eventing-crds.yaml
+
+print_info "Installing Knative Eventing core..."
+kubectl apply -f https://github.com/knative/eventing/releases/latest/download/eventing-core.yaml
+
+# Configure DNS
+print_info "Configuring DNS for local development..."
+kubectl apply -f https://github.com/knative/serving/releases/latest/download/serving-default-domain.yaml
+
+# Wait for Knative components to be ready
+print_info "Waiting for Knative Serving to be ready..."
+kubectl wait deployment --all --timeout=300s --for=condition=Available -n knative-serving
+
+print_info "Waiting for Knative Eventing to be ready..."
+kubectl wait deployment --all --timeout=300s --for=condition=Available -n knative-eventing
+
+print_status "Knative installation completed"
 
 # Install Kyverno policy engine
 echo ""
@@ -467,9 +497,9 @@ echo "  • Context: kind-${CLUSTER_NAME}"
 echo "  • API Server: $(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}')"
 echo "  • Kubeconfig: ${KUBECONFIG_FILE}"
 echo ""
-echo "Ingress Controller:"
-echo "  • nginx ingress controller: ✅ Active (port 80/443 mapped to localhost)"
-echo "  • External access: ✅ Ready for applications with ingress enabled"
+echo "Networking:"
+echo "  • Kourier (Knative networking): ✅ Active (handles serverless app routing)"
+echo "  • External access: ✅ Ready for Knative services"
 echo ""
 echo "Policy Engine:"
 echo "  • Kyverno: ✅ Active (governance and security policies)"
@@ -482,6 +512,12 @@ echo "  • Infrastructure monitoring: ✅ Active (CPU, memory, disk, network me
 echo "  • APM (Application Performance Monitoring): ✅ Configured (requires app deployment for traces)"
 echo "  • Log collection: ✅ Active (container and application logs)"
 echo "  • Hostname resolution: ✅ Configured for local development"
+echo ""
+echo "Serverless Platform:"
+echo "  • Knative Serving: ✅ Active (serverless applications)"
+echo "  • Knative Eventing: ✅ Active (event-driven architecture)"
+echo "  • Kourier: ✅ Active (Knative networking layer)"
+echo "  • DNS: ✅ Configured for local development"
 echo ""
 echo "Quick Start Commands:"
 echo "  • ./verify-datadog.sh               # Verify Datadog monitoring status"
@@ -515,6 +551,7 @@ echo "  • Platform Vibez Documentation: https://github.com/wiggitywhitney/plat
 echo "  • Datadog Kubernetes Monitoring: https://docs.datadoghq.com/containers/kubernetes/"
 echo "  • Kind Documentation: https://kind.sigs.k8s.io/docs/"
 echo "  • Teller Documentation: https://github.com/tellerops/teller"
+echo "  • Knative Documentation: https://knative.dev/docs/"
 echo ""
 
 echo "Happy Kubernetes development with monitoring! 🚀📊" 

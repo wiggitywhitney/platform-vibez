@@ -3,42 +3,128 @@ kind: ClusterPolicy
 metadata:
   name: disallow-latest-tag
   annotations:
-    policies.kyverno.io/title: "Disallow Latest Tags"
-    policies.kyverno.io/category: "Platform Security"
-    policies.kyverno.io/severity: medium
-    policies.kyverno.io/description: >-
-      Using the 'latest' tag for container images is discouraged as it makes
-      it difficult to track which version is deployed and can lead to inconsistent
-      deployments. This policy ensures that all container images must specify
-      an explicit version tag.
-    policies.kyverno.io/subject: "Container Images"
+    policies.kyverno.io/category: Platform Security
+    policies.kyverno.io/description: "Disallows the use of 'latest' tag for container images in team namespaces to ensure version pinning and deployment consistency"
 spec:
   background: true
   validationFailureAction: Enforce
   rules:
-  - name: check-image-tag
+  - name: check-image-tag-pods
     match:
-      any:
-      - resources:
-          kinds:
-          - Pod
-          - Deployment
-          - StatefulSet
-          - DaemonSet
-          - Job
-          - CronJob
-          - ReplicaSet
-          - ReplicationController
-    preconditions:
-      all:
-      - key: "{{request.object.metadata.namespace}}"
-        operator: AnyIn
-        value: ["*team*"]
+      resources:
+        kinds:
+        - Pod
+        namespaces:
+        - "*team*"
     validate:
-      message: "The ':latest' tag is not allowed for container images in team namespaces. Please specify an explicit version tag."
+      message: "Using 'latest' tag is not allowed in team namespaces. Please specify a specific version tag for better deployment consistency and rollback capabilities."
+      pattern:
+        spec:
+          containers:
+          - image: "!*:latest"
+          =(initContainers):
+          - image: "!*:latest"
+  - name: check-image-tag-deployments
+    match:
+      resources:
+        kinds:
+        - Deployment
+        namespaces:
+        - "*team*"
+    validate:
+      message: "Using 'latest' tag is not allowed in team namespaces. Please specify a specific version tag for better deployment consistency and rollback capabilities."
       pattern:
         spec:
           template:
             spec:
               containers:
+              - image: "!*:latest"
+              =(initContainers):
+              - image: "!*:latest"
+  - name: check-image-tag-daemonsets
+    match:
+      resources:
+        kinds:
+        - DaemonSet
+        namespaces:
+        - "*team*"
+    validate:
+      message: "Using 'latest' tag is not allowed in team namespaces. Please specify a specific version tag for better deployment consistency and rollback capabilities."
+      pattern:
+        spec:
+          template:
+            spec:
+              containers:
+              - image: "!*:latest"
+              =(initContainers):
+              - image: "!*:latest"
+  - name: check-image-tag-statefulsets
+    match:
+      resources:
+        kinds:
+        - StatefulSet
+        namespaces:
+        - "*team*"
+    validate:
+      message: "Using 'latest' tag is not allowed in team namespaces. Please specify a specific version tag for better deployment consistency and rollback capabilities."
+      pattern:
+        spec:
+          template:
+            spec:
+              containers:
+              - image: "!*:latest"
+              =(initContainers):
+              - image: "!*:latest"
+  - name: check-image-tag-jobs
+    match:
+      resources:
+        kinds:
+        - Job
+        namespaces:
+        - "*team*"
+    validate:
+      message: "Using 'latest' tag is not allowed in team namespaces. Please specify a specific version tag for better deployment consistency and rollback capabilities."
+      pattern:
+        spec:
+          template:
+            spec:
+              containers:
+              - image: "!*:latest"
+              =(initContainers):
+              - image: "!*:latest"
+  - name: check-image-tag-cronjobs
+    match:
+      resources:
+        kinds:
+        - CronJob
+        namespaces:
+        - "*team*"
+    validate:
+      message: "Using 'latest' tag is not allowed in team namespaces. Please specify a specific version tag for better deployment consistency and rollback capabilities."
+      pattern:
+        spec:
+          jobTemplate:
+            spec:
+              template:
+                spec:
+                  containers:
+                  - image: "!*:latest"
+                  =(initContainers):
+                  - image: "!*:latest"
+  - name: check-image-tag-knative-services
+    match:
+      resources:
+        kinds:
+        - serving.knative.dev/v1/Service
+        namespaces:
+        - "*team*"
+    validate:
+      message: "Using 'latest' tag is not allowed in team namespaces. Please specify a specific version tag for better deployment consistency and rollback capabilities."
+      pattern:
+        spec:
+          template:
+            spec:
+              containers:
+              - image: "!*:latest"
+              =(initContainers):
               - image: "!*:latest" 

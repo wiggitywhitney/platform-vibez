@@ -2,16 +2,30 @@
 
 **IMPORTANT: Before creating any policy, always ask the user ONE question at a time. Start with the first question and wait for the answer before proceeding to the next.**
 
-**Agent Instructions: There is no need for you to check the project. All the instructions you need are in this rule.**
+**Agent Instructions: You MUST dynamically discover resources in the cluster based on the user's requirements. Use kubectl commands to find ALL available resources and check which ones have the relevant field structure. Do not make assumptions about what resources exist.**
 
 **ALWAYS create validation policies only.**
 
 **Ask these questions in order (one at a time):**
 
-1. **"Which Kubernetes resources should this policy target?"** (Deployments, Services, Pods, etc.)
-   - If the user answers with "all" or any synonym for all, ensure you discover all of the possible resources in the cluster where the policy might be applied. You have access to the cluster.
+1. **"What specific behavior or constraint should this policy enforce?"** (What should it check for or prevent?)
 
-2. **"What specific behavior or constraint should this policy enforce?"** (What should it check for or prevent?)
+2. **Dynamically discover and suggest relevant resources based on their requirement:**
+   - **Analyze their constraint** to understand what field/capability they're targeting:
+     - Container images → Look for resources with `.spec.containers[].image`, `.spec.template.spec.containers[].image`
+     - Resource limits → Look for resources with `.spec.containers[].resources`, `.spec.template.spec.containers[].resources`
+     - Labels/annotations → Look for resources with `.metadata.labels`, `.metadata.annotations`
+     - Storage → Look for resources with `.spec.volumes`, `.spec.volumeClaimTemplates`, `.spec.persistentVolumeClaimRetentionPolicy`
+     - Networking → Look for resources with `.spec.ports`, `.spec.selector`, `.spec.rules`
+     - Security → Look for resources with `.spec.securityContext`, `.spec.serviceAccountName`, `.spec.imagePullSecrets`
+     - Custom fields → Look for any field path they specify
+   - **Query the cluster** to discover ALL available resources:
+     ```bash
+     kubectl api-resources --verbs=list -o name
+     ```
+   - **Programmatically check** which resources actually have the relevant field structure by sampling existing resources or checking OpenAPI schemas
+   - **Present intelligent suggestions**: "Based on your requirement to enforce [X], I found these resources in your cluster that have the relevant field structure: [discovered list]. Should the policy target all of them or a subset?"
+   - **Include both native and custom resources** (CRDs, operators, etc.) that match the field criteria
 
 3. **"Are there any exceptions or special cases to consider?"** (Should it exclude certain namespaces, labels, etc.?)
 
@@ -66,7 +80,7 @@ spec:
 
 ## Common Policy Patterns
 
-### Image Validation
+### Container Image Validation (Multiple Resource Types)
 ```yaml
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
@@ -77,11 +91,15 @@ metadata:
 spec:
   background: true
   rules:
-  - name: check-image-tag
+  - name: check-image-tag-workloads
     match:
       resources:
         kinds:
         - Deployment
+        - DaemonSet
+        - StatefulSet
+        - Job
+        - CronJob
     validate:
       message: "Using 'latest' tag is not allowed. Please specify a version."
       pattern:
@@ -90,9 +108,20 @@ spec:
             spec:
               containers:
               - image: "!*:latest"
+  - name: check-image-tag-pods
+    match:
+      resources:
+        kinds:
+        - Pod
+    validate:
+      message: "Using 'latest' tag is not allowed. Please specify a version."
+      pattern:
+        spec:
+          containers:
+          - image: "!*:latest"
 ```
 
-### Resource Limits Enforcement
+### Resource Limits (Dynamic Resource Discovery)
 ```yaml
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
@@ -103,11 +132,14 @@ metadata:
 spec:
   background: true
   rules:
-  - name: check-resource-limits
+  - name: check-resource-limits-workloads
     match:
       resources:
         kinds:
         - Deployment
+        - DaemonSet
+        - StatefulSet
+        - Job
     validate:
       message: "CPU and memory limits are required for all containers"
       pattern:
@@ -119,9 +151,27 @@ spec:
                   limits:
                     cpu: "?*"
                     memory: "?*"
+  - name: check-resource-limits-cronjobs
+    match:
+      resources:
+        kinds:
+        - CronJob
+    validate:
+      message: "CPU and memory limits are required for all containers"
+      pattern:
+        spec:
+          jobTemplate:
+            spec:
+              template:
+                spec:
+                  containers:
+                  - resources:
+                      limits:
+                        cpu: "?*"
+                        memory: "?*"
 ```
 
-### Label Requirements
+### Universal Label Requirements (All Resources)
 ```yaml
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
@@ -136,7 +186,7 @@ spec:
     match:
       resources:
         kinds:
-        - Deployment
+        - "*"  # Apply to all resource types
     validate:
       message: "Required labels 'app' and 'environment' must be present"
       pattern:
@@ -144,6 +194,32 @@ spec:
           labels:
             app: "?*"
             environment: "?*"
+```
+
+### Custom Resource Policy Example
+```yaml
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: validate-custom-resource
+  annotations:
+    policies.kyverno.io/category: Platform Governance
+spec:
+  background: true
+  rules:
+  - name: check-custom-field
+    match:
+      resources:
+        kinds:
+        - serving.knative.dev/v1/Service  # Example: Knative Service
+    validate:
+      message: "Custom field validation failed"
+      pattern:
+        spec:
+          template:
+            spec:
+              containers:
+              - image: "!*:latest"  # Same validation for custom resources
 ```
 
 ## Testing Your Policies
@@ -174,6 +250,26 @@ spec:
 **File Organization:**
 - Policies: `policies/[policy-name].yaml`
 
+## Dynamic Resource Discovery Commands
+```bash
+# Discover all available resources in the cluster
+kubectl api-resources --verbs=list -o name
+
+# Find resources with specific capabilities
+kubectl api-resources --verbs=list -o wide | grep -i storage
+kubectl api-resources --verbs=list -o wide | grep -i network
+
+# Check resource schemas for specific fields
+kubectl explain deployment.spec.template.spec.containers
+kubectl explain service.spec.ports
+kubectl explain customresource.spec --recursive
+
+# Sample existing resources to understand field structures
+kubectl get deployments -o yaml | head -50
+kubectl get services -o yaml | head -50
+kubectl get <custom-resource> -o yaml | head -50
+```
+
 ## Policy Validation Commands
 ```bash
 # Test a policy against a resource
@@ -183,6 +279,12 @@ kubectl apply -f test-resource.yaml
 # Check policy status
 kubectl get clusterpolicies
 kubectl describe clusterpolicy your-policy-name
+
+# Validate policy syntax
+kyverno validate policy your-policy.yaml
+
+# Test policy against existing resources
+kyverno apply your-policy.yaml --resource existing-resource.yaml
 
 # Run Chainsaw tests
 cd tests/e2e && chainsaw test policies/

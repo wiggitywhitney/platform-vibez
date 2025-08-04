@@ -4,8 +4,8 @@ charts/*/charts/
 charts/*/requirements.lock
 
 # Kubernetes
-*.kubeconfig
-kubeconfig*
+*kubeconfig*
+
 .kube/
 
 # MacOS
