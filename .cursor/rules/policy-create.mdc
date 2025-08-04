@@ -4,6 +4,8 @@
 
 **Agent Instructions: You MUST dynamically discover resources in the cluster based on the user's requirements. Use kubectl commands to find ALL available resources and check which ones have the relevant field structure. Do not make assumptions about what resources exist.**
 
+**🚨 CRITICAL: When user says "ALL", "comprehensive", "complete", or "critical" - DO NOT SUGGEST SUBSETS. DO THE COMPLETE WORK IMMEDIATELY. No shortcuts, no "common cases", no lazy behavior. Enumerate every single resource that matches their criteria.**
+
 **ALWAYS create validation policies only.**
 
 **Ask these questions in order (one at a time):**
@@ -24,16 +26,58 @@
      kubectl api-resources --verbs=list -o name
      ```
    - **Programmatically check** which resources actually have the relevant field structure by sampling existing resources or checking OpenAPI schemas
-   - **Present intelligent suggestions**: "Based on your requirement to enforce [X], I found these resources in your cluster that have the relevant field structure: [discovered list]. Should the policy target all of them or a subset?"
+   - **VALIDATION STEP**: Before creating the policy, use `kubectl explain` to verify field structure for EVERY resource you plan to include
+   - **Present complete findings**: "I found [X] resources in your cluster that have the relevant field structure: [complete list]"
+   - **If user said "ALL"**: Include every single matching resource immediately. Do NOT ask for subsets.
+   - **If user didn't specify scope**: Ask "Should the policy target all of them or a subset?"
    - **Include both native and custom resources** (CRDs, operators, etc.) that match the field criteria
+   
+   **🔍 COMPREHENSIVE DISCOVERY COMMANDS:**
+   ```bash
+   # Get all resource types and their Kind names
+   kubectl api-resources | grep "target-service" | awk '{print $NF}'
+   
+   # Verify field structure for each resource type
+   kubectl explain resource.spec.targetField --recursive | grep targetField
+   
+   # Count total resources to ensure complete coverage
+   kubectl api-resources | grep "target-service" | wc -l
+   ```
 
 3. **"Are there any exceptions or special cases to consider?"** (Should it exclude certain namespaces, labels, etc.?)
 
 **After Policy Creation:**
-1. **ALWAYS ask: "Would you like to test the policy?"**
+1. **MANDATORY VALIDATION**: Before asking about testing, verify your policy actually covers what the user requested:
+   - If user said "ALL" resources: Count and list exactly how many resource types you included
+   - Compare against your discovery results to ensure 100% coverage
+   - If you missed any resources, immediately update the policy - do NOT wait for user to catch your mistake
+   
+2. **Coverage Report**: Provide a clear summary:
+   - "Your policy now covers [X]/[Y] resource types ([Z]% coverage)"
+   - "Previously covered: [old count], Now covered: [new count]"
+   - List any resource types excluded and why
+   
+3. **ALWAYS ask: "Would you like to test the policy?"**
    - If yes, perform both positive and negative test cases
    - After testing, ALWAYS clean up test resources (namespaces, deployments, etc.)
    - Show clear test results and explain what was tested
+
+## 🚫 ANTI-PATTERNS TO AVOID
+
+**Never do these lazy behaviors:**
+- ❌ Creating policies with "common" or "popular" resource subsets when user wants ALL
+- ❌ Suggesting "this covers most use cases" when comprehensive coverage was requested  
+- ❌ Making partial policies and waiting for user to notice gaps
+- ❌ Using "efficient" shortcuts instead of complete enumeration
+- ❌ Assuming 5-10 resource types are "sufficient" when 100+ exist
+- ❌ Asking "do you want all or a subset?" when user already said ALL
+
+**When user says "ALL", "complete", "comprehensive", or "critical":**
+- ✅ Discover every single matching resource type
+- ✅ Include every resource in the policy immediately  
+- ✅ Validate 100% coverage before presenting results
+- ✅ Show exact counts and percentages
+- ✅ Fix gaps immediately without being asked
 
 When creating Kyverno policies, follow these platform engineering principles:
 
@@ -251,24 +295,46 @@ spec:
 - Policies: `policies/[policy-name].yaml`
 
 ## Dynamic Resource Discovery Commands
+
+**🔥 CRITICAL: Run discovery commands in PARALLEL for efficiency:**
+
 ```bash
 # Discover all available resources in the cluster
 kubectl api-resources --verbs=list -o name
+
+# Get exact Kind names for policy creation
+kubectl api-resources | grep "target-service" | awk '{print $NF}' | sort
+
+# Count total resources for validation
+kubectl api-resources | grep "target-service" | wc -l
 
 # Find resources with specific capabilities
 kubectl api-resources --verbs=list -o wide | grep -i storage
 kubectl api-resources --verbs=list -o wide | grep -i network
 
-# Check resource schemas for specific fields
-kubectl explain deployment.spec.template.spec.containers
-kubectl explain service.spec.ports
-kubectl explain customresource.spec --recursive
+# Check resource schemas for specific fields (run multiple in parallel)
+kubectl explain deployment.spec.template.spec.containers &
+kubectl explain service.spec.ports &
+kubectl explain customresource.spec --recursive &
 
 # Sample existing resources to understand field structures
 kubectl get deployments -o yaml | head -50
 kubectl get services -o yaml | head -50
 kubectl get <custom-resource> -o yaml | head -50
+
+# Validate field existence across multiple resource types (parallel)
+kubectl explain resource1.spec.targetField --recursive | grep targetField &
+kubectl explain resource2.spec.targetField --recursive | grep targetField &
+kubectl explain resource3.spec.targetField --recursive | grep targetField &
+wait  # Wait for all parallel commands to complete
 ```
+
+**📋 DISCOVERY VALIDATION CHECKLIST:**
+- [ ] Enumerated ALL resources of target type  
+- [ ] Verified field structure for each resource type
+- [ ] Counted total resources vs policy coverage
+- [ ] Included both core and custom resources
+- [ ] No lazy shortcuts or "common case" assumptions
 
 ## Policy Validation Commands
 ```bash
@@ -291,6 +357,25 @@ cd tests/e2e && chainsaw test policies/
 ```
 
 Remember: Policies should enforce platform guardrails while providing clear guidance to developers on how to comply.
+
+## 🎯 FINAL VALIDATION BEFORE COMPLETION
+
+Before presenting any policy to the user, ask yourself:
+
+1. **Did I discover ALL matching resources?** (Not just common ones)
+2. **Did I validate field structure for EVERY resource type?**  
+3. **Does my policy coverage match the user's explicit request?**
+4. **If user said "ALL" - did I include 100% of discovered resources?**
+5. **Can I provide exact counts and percentages of coverage?**
+
+**If ANY answer is "no" - FIX THE POLICY IMMEDIATELY. Don't wait for the user to catch your mistakes.**
+
+**✅ SUCCESS CRITERIA:**
+- User said "ALL" → Policy includes every matching resource (100% coverage)
+- User said "comprehensive" → No shortcuts, complete enumeration
+- User said "critical" → Bulletproof coverage, no gaps
+- Policy ready → Validated, tested, complete
+
 description:
 globs:
 alwaysApply: false

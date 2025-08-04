@@ -1,0 +1,126 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: enforce-aws-us-east-1-region
+  annotations:
+    policies.kyverno.io/category: Platform Governance
+    policies.kyverno.io/description: "Enforces that all AWS resources must be created in us-east-1 region only"
+    policies.kyverno.io/subject: "AWS Resources"
+    policies.kyverno.io/minversion: "1.6.0"
+spec:
+  background: true
+  validationFailureAction: Enforce
+  rules:
+  - name: enforce-aws-region-all
+    match:
+      any:
+      - resources:
+          kinds:
+          # ALL AWS EC2 Resources - Complete Coverage (101 Resources)
+          - AMI
+          - AMICopy
+          - AMILaunchPermission
+          - AvailabilityZoneGroup
+          - CapacityReservation
+          - CarrierGateway
+          - CustomerGateway
+          - DefaultNetworkACL
+          - DefaultRouteTable
+          - DefaultSecurityGroup
+          - DefaultSubnet
+          - DefaultVPC
+          - DefaultVPCDHCPOptions
+          - EBSDefaultKMSKey
+          - EBSEncryptionByDefault
+          - EBSSnapshot
+          - EBSSnapshotCopy
+          - EBSSnapshotImport
+          - EBSVolume
+          - EgressOnlyInternetGateway
+          - EIP
+          - EIPAssociation
+          - Fleet
+          - FlowLog
+          - Host
+          - Instance
+          - InstanceState
+          - InternetGateway
+          - KeyPair
+          - LaunchTemplate
+          - MainRouteTableAssociation
+          - ManagedPrefixList
+          - ManagedPrefixListEntry
+          - NATGateway
+          - NetworkACL
+          - NetworkACLRule
+          - NetworkInsightsAnalysis
+          - NetworkInsightsPath
+          - NetworkInterface
+          - NetworkInterfaceAttachment
+          - NetworkInterfaceSgAttachment
+          - PlacementGroup
+          - Route
+          - RouteTable
+          - RouteTableAssociation
+          - SecurityGroup
+          - SecurityGroupEgressRule
+          - SecurityGroupIngressRule
+          - SecurityGroupRule
+          - SerialConsoleAccess
+          - SnapshotCreateVolumePermission
+          - SpotDatafeedSubscription
+          - SpotFleetRequest
+          - SpotInstanceRequest
+          - Subnet
+          - SubnetCidrReservation
+          - Tag
+          - TrafficMirrorFilter
+          - TrafficMirrorFilterRule
+          - TransitGateway
+          - TransitGatewayConnect
+          - TransitGatewayConnectPeer
+          - TransitGatewayMulticastDomain
+          - TransitGatewayMulticastDomainAssociation
+          - TransitGatewayMulticastGroupMember
+          - TransitGatewayMulticastGroupSource
+          - TransitGatewayPeeringAttachment
+          - TransitGatewayPeeringAttachmentAccepter
+          - TransitGatewayPolicyTable
+          - TransitGatewayPrefixListReference
+          - TransitGatewayRoute
+          - TransitGatewayRouteTable
+          - TransitGatewayRouteTableAssociation
+          - TransitGatewayRouteTablePropagation
+          - TransitGatewayVPCAttachment
+          - TransitGatewayVPCAttachmentAccepter
+          - VolumeAttachment
+          - VPC
+          - VPCDHCPOptions
+          - VPCDHCPOptionsAssociation
+          - VPCEndpoint
+          - VPCEndpointConnectionNotification
+          - VPCEndpointRouteTableAssociation
+          - VPCEndpointSecurityGroupAssociation
+          - VPCEndpointService
+          - VPCEndpointServiceAllowedPrincipal
+          - VPCEndpointSubnetAssociation
+          - VPCIpam
+          - VPCIpamPool
+          - VPCIpamPoolCidr
+          - VPCIpamPoolCidrAllocation
+          - VPCIpamScope
+          - VPCIPv4CidrBlockAssociation
+          - VPCPeeringConnection
+          - VPCPeeringConnectionAccepter
+          - VPCPeeringConnectionOptions
+          - VPNConnection
+          - VPNConnectionRoute
+          - VPNGateway
+          - VPNGatewayAttachment
+          - VPNGatewayRoutePropagation
+    validate:
+      message: "AWS resources must be created in us-east-1 region only. Found region: {{ request.object.spec.forProvider.region || 'not specified' }}"
+      pattern:
+        spec:
+          forProvider:
+                        region: "us-east-1" 
