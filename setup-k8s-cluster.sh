@@ -10,15 +10,17 @@
 # - Infrastructure monitoring (via Datadog)
 # - Secure secret management (via Teller)
 # - Knative serverless platform for applications
+# - Crossplane infrastructure platform for cloud resources
 #
 # What you'll get after running this script:
 # - A fully functional Kubernetes cluster running locally
 # - Knative Serving for serverless applications (with Kourier networking)
 # - Knative Eventing for event-driven architectures
 # - Kyverno policy engine for governance and security
+# - Crossplane infrastructure platform for cloud resource management
 # - Datadog agent collecting metrics and logs (traces require app deployment)
 # - Secure API key management without hardcoding secrets
-# - Ready-to-use environment for deploying serverless applications
+# - Ready-to-use environment for deploying serverless applications and infrastructure
 # - Comprehensive monitoring dashboard in Datadog UI
 #
 # Prerequisites:
@@ -62,12 +64,14 @@
 # 2. Installs Knative Serving and Eventing for serverless applications
 # 3. Installs Kourier as the Knative networking layer
 # 4. Installs Kyverno policy engine for governance
-# 5. Installs the Datadog operator via Helm
-# 6. Creates Datadog namespace and API key secret
-# 7. Deploys DatadogAgent for infrastructure monitoring
-# 8. Configures hostname resolution for local development
-# 9. Enables APM configuration and log collection
-# 10. Verifies Datadog monitoring setup
+# 5. Installs Crossplane infrastructure platform for cloud resource management
+# 6. Installs AWS EC2 provider for Crossplane
+# 7. Installs the Datadog operator via Helm
+# 8. Creates Datadog namespace and API key secret
+# 9. Deploys DatadogAgent for infrastructure monitoring
+# 10. Configures hostname resolution for local development
+# 11. Enables APM configuration and log collection
+# 12. Verifies Datadog monitoring setup
 
 set -e  # Exit on any error
 
@@ -398,6 +402,43 @@ else
     print_warning "Failed to apply some policies. Check policies/ directory."
 fi
 
+# Install Crossplane
+echo ""
+echo "🔀 Installing Crossplane infrastructure platform..."
+echo "=================================================="
+print_info "Adding Crossplane Helm repository..."
+helm repo add crossplane-stable https://charts.crossplane.io/stable || true
+helm repo update
+
+print_info "Installing Crossplane..."
+helm install crossplane \
+  crossplane-stable/crossplane \
+  --namespace crossplane-system \
+  --create-namespace
+
+print_info "Waiting for Crossplane to be ready..."
+kubectl wait --for=condition=Ready pods -l app=crossplane -n crossplane-system --timeout=300s
+
+print_status "Crossplane infrastructure platform installed and ready"
+
+print_info "Installing AWS EC2 provider for Crossplane..."
+kubectl apply -f - <<EOF
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: provider-aws-ec2
+spec:
+  package: xpkg.upbound.io/upbound/provider-aws-ec2:v1.23.1
+EOF
+
+print_info "Waiting for AWS EC2 provider to be ready..."
+kubectl wait --for=condition=Healthy provider.pkg.crossplane.io/provider-aws-ec2 --timeout=300s
+
+print_status "AWS EC2 provider installed and ready"
+
+print_info "Crossplane status:"
+kubectl get pods -n crossplane-system
+
 # Setup Datadog Infrastructure Monitoring
 echo ""
 echo "📊 Setting up Datadog Infrastructure Monitoring..."
@@ -486,6 +527,10 @@ echo "📈 Datadog Monitoring:"
 kubectl get pods -n datadog
 echo ""
 
+echo "🔀 Crossplane Infrastructure:"
+kubectl get pods -n crossplane-system
+echo ""
+
 # Final summary
 echo ""
 echo "🎉 SUCCESS! Your Kubernetes cluster with Datadog monitoring is ready!"
@@ -506,6 +551,13 @@ echo "  • Kyverno: ✅ Active (governance and security policies)"
 echo "  • Platform policies: ✅ Applied (4 policies: labels, image tags, resource limits, CPU bounds)"
 echo "  • Admission control: ✅ Ready for policy enforcement"
 echo ""
+echo "Infrastructure Platform:"
+echo "  • Crossplane: ✅ Active (cloud resource management via Kubernetes APIs)"
+echo "  • Namespace: crossplane-system"
+echo "  • AWS EC2 Provider: ✅ Installed and ready"
+echo "  • Providers: ⏳ Ready for additional cloud providers (GCP, Azure, etc.)"
+echo "  • Compositions: ⏳ Ready for platform abstractions"
+echo ""
 echo "Datadog Monitoring:"
 echo "  • Namespace: datadog"
 echo "  • Infrastructure monitoring: ✅ Active (CPU, memory, disk, network metrics)"
@@ -525,7 +577,11 @@ echo "  • kubectl get all                    # List all resources"
 echo "  • kubectl get pods -A               # List all pods in all namespaces"
 echo "  • kubectl get pods -n datadog       # Check Datadog agent status"
 echo "  • kubectl get pods -n kyverno       # Check Kyverno policy engine status"
+echo "  • kubectl get pods -n crossplane-system  # Check Crossplane status"
 echo "  • kubectl get clusterpolicies       # List Kyverno cluster policies"
+echo "  • kubectl get providers              # List Crossplane providers"
+echo "  • kubectl describe provider provider-aws-ec2  # Check AWS provider status"
+echo "  • kubectl get compositeresourcedefinitions  # List Crossplane XRDs"
 echo "  • kubectl apply -f policies/        # Reapply platform policies"
 echo "  • kubectl logs -n datadog -l app.kubernetes.io/component=cluster-agent  # Check Datadog logs"
 echo "  • kubectl create deployment nginx --image=nginx  # Deploy nginx"
@@ -541,6 +597,8 @@ echo ""
 
 echo "🔗 What's Next:"
 echo "  • Visit your Datadog dashboard to see infrastructure metrics"
+echo "  • Create Crossplane compositions for EC2 instances and networking"
+echo "  • Install additional Crossplane providers for other cloud services"
 echo "  • Deploy the generic-app Helm chart: helm install my-app ./helm-charts/generic-app"
 echo "  • Run end-to-end tests: cd tests/e2e && ./test-runner.sh"
 echo "  • Read the documentation: README.md"
@@ -548,6 +606,7 @@ echo ""
 
 echo "📚 Useful Resources:"
 echo "  • Platform Vibez Documentation: https://github.com/wiggitywhitney/platform-vibez"
+echo "  • Crossplane Documentation: https://docs.crossplane.io/"
 echo "  • Datadog Kubernetes Monitoring: https://docs.datadoghq.com/containers/kubernetes/"
 echo "  • Kind Documentation: https://kind.sigs.k8s.io/docs/"
 echo "  • Teller Documentation: https://github.com/tellerops/teller"
