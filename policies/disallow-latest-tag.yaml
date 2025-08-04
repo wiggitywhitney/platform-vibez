@@ -1,0 +1,44 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-latest-tag
+  annotations:
+    policies.kyverno.io/title: "Disallow Latest Tags"
+    policies.kyverno.io/category: "Platform Security"
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/description: >-
+      Using the 'latest' tag for container images is discouraged as it makes
+      it difficult to track which version is deployed and can lead to inconsistent
+      deployments. This policy ensures that all container images must specify
+      an explicit version tag.
+    policies.kyverno.io/subject: "Container Images"
+spec:
+  background: true
+  validationFailureAction: Enforce
+  rules:
+  - name: check-image-tag
+    match:
+      any:
+      - resources:
+          kinds:
+          - Pod
+          - Deployment
+          - StatefulSet
+          - DaemonSet
+          - Job
+          - CronJob
+          - ReplicaSet
+          - ReplicationController
+    preconditions:
+      all:
+      - key: "{{request.object.metadata.namespace}}"
+        operator: AnyIn
+        value: ["*team*"]
+    validate:
+      message: "The ':latest' tag is not allowed for container images in team namespaces. Please specify an explicit version tag."
+      pattern:
+        spec:
+          template:
+            spec:
+              containers:
+              - image: "!*:latest" 

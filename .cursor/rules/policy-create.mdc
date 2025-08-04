@@ -15,6 +15,12 @@
 
 3. **"Are there any exceptions or special cases to consider?"** (Should it exclude certain namespaces, labels, etc.?)
 
+**After Policy Creation:**
+1. **ALWAYS ask: "Would you like to test the policy?"**
+   - If yes, perform both positive and negative test cases
+   - After testing, ALWAYS clean up test resources (namespaces, deployments, etc.)
+   - Show clear test results and explain what was tested
+
 When creating Kyverno policies, follow these platform engineering principles:
 
 ## Policy Structure
@@ -158,6 +164,12 @@ spec:
     assert:
       - file: expected-error.yaml
 ```
+
+**Test Cleanup:**
+- ALWAYS clean up test resources after testing
+- Remove test namespaces: `kubectl delete namespace <test-namespace>`
+- Remove test deployments: `kubectl delete deployment <test-deployment> -n <namespace>`
+- Verify cleanup: `kubectl get all -n <test-namespace>`
 
 **File Organization:**
 - Policies: `policies/[policy-name].yaml`
