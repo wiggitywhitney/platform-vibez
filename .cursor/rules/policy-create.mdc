@@ -1,0 +1,183 @@
+# Kyverno Policy Creation Guidelines
+
+**IMPORTANT: Before creating any policy, always ask the user ONE question at a time. Start with the first question and wait for the answer before proceeding to the next.**
+
+**Agent Instructions: There is no need for you to check the project. All the instructions you need are in this rule.**
+
+**ALWAYS create validation policies only.**
+
+**Ask these questions in order (one at a time):**
+
+1. **"Which Kubernetes resources should this policy target?"** (Deployments, Services, Pods, etc.)
+   - If the user answers with "all" or any synonym for all, ensure you discover all of the possible resources in the cluster where the policy might be applied. You have access to the cluster.
+
+2. **"What specific behavior or constraint should this policy enforce?"** (What should it check for or prevent?)
+
+3. **"Are there any exceptions or special cases to consider?"** (Should it exclude certain namespaces, labels, etc.?)
+
+When creating Kyverno policies, follow these platform engineering principles:
+
+## Policy Structure
+- **ALWAYS create policies in the project root level `policies/` directory**
+- Use descriptive names that explain the policy's purpose
+- Include clear annotations for categorization and documentation
+- Follow the naming pattern: `[action]-[resource]-[constraint]` (e.g., `disallow-latest-tag`, `require-resource-limits`)
+
+## Policy Categories
+- **Platform Security**: Image validation, RBAC enforcement, network policies
+- **Platform Resources**: Resource limits, CPU/memory constraints, storage policies  
+- **Platform Governance**: Label requirements, annotation enforcement, metadata validation
+
+## Best Practices
+- Always include both `validate` and `mutate` rules where appropriate
+- Use `background: true` for policies that should run continuously
+- Include proper failure messages that guide developers to fix issues
+- Test policies with both positive and negative test cases
+- Use `exclude` rules to avoid conflicts with system namespaces
+
+## Example Policy Structure
+```yaml
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: policy-name
+  annotations:
+    policies.kyverno.io/category: Platform Security
+    policies.kyverno.io/description: "Brief description of what this policy does"
+spec:
+  background: true
+  rules:
+  - name: rule-name
+    match:
+      resources:
+        kinds:
+        - Deployment
+    validate:
+      message: "Clear error message explaining the violation"
+      pattern:
+        # validation pattern here
+```
+
+## Common Policy Patterns
+
+### Image Validation
+```yaml
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: disallow-latest-tag
+  annotations:
+    policies.kyverno.io/category: Platform Security
+spec:
+  background: true
+  rules:
+  - name: check-image-tag
+    match:
+      resources:
+        kinds:
+        - Deployment
+    validate:
+      message: "Using 'latest' tag is not allowed. Please specify a version."
+      pattern:
+        spec:
+          template:
+            spec:
+              containers:
+              - image: "!*:latest"
+```
+
+### Resource Limits Enforcement
+```yaml
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-resource-limits
+  annotations:
+    policies.kyverno.io/category: Platform Resources
+spec:
+  background: true
+  rules:
+  - name: check-resource-limits
+    match:
+      resources:
+        kinds:
+        - Deployment
+    validate:
+      message: "CPU and memory limits are required for all containers"
+      pattern:
+        spec:
+          template:
+            spec:
+              containers:
+              - resources:
+                  limits:
+                    cpu: "?*"
+                    memory: "?*"
+```
+
+### Label Requirements
+```yaml
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-labels
+  annotations:
+    policies.kyverno.io/category: Platform Governance
+spec:
+  background: true
+  rules:
+  - name: check-required-labels
+    match:
+      resources:
+        kinds:
+        - Deployment
+    validate:
+      message: "Required labels 'app' and 'environment' must be present"
+      pattern:
+        metadata:
+          labels:
+            app: "?*"
+            environment: "?*"
+```
+
+## Testing Your Policies
+Create test files in `tests/e2e/policies/` following this pattern:
+```yaml
+apiVersion: chainsaw.kyverno.io/v1alpha1
+kind: Test
+metadata:
+  name: policy-name-test
+spec:
+  steps:
+  - name: should-pass-valid-resource
+    apply:
+      file: valid-resource.yaml
+  - name: should-fail-invalid-resource
+    apply:
+      file: invalid-resource.yaml
+    assert:
+      - file: expected-error.yaml
+```
+
+**File Organization:**
+- Policies: `policies/[policy-name].yaml`
+
+## Policy Validation Commands
+```bash
+# Test a policy against a resource
+kubectl apply -f your-policy.yaml
+kubectl apply -f test-resource.yaml
+
+# Check policy status
+kubectl get clusterpolicies
+kubectl describe clusterpolicy your-policy-name
+
+# Run Chainsaw tests
+cd tests/e2e && chainsaw test policies/
+```
+
+Remember: Policies should enforce platform guardrails while providing clear guidance to developers on how to comply.
+description:
+globs:
+alwaysApply: false
+---
