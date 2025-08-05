@@ -1,0 +1,62 @@
+apiVersion: iam.services.k8s.aws/v1alpha1
+kind: Role
+metadata:
+  name: ack-example-role
+  labels:
+    app: example-app
+    environment: development
+    managed-by: ack
+spec:
+  name: ACK-Example-Role
+  description: "Example IAM role created via ACK for platform-vibez"
+  assumeRolePolicyDocument: |
+    {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Principal": {
+            "Service": "ec2.amazonaws.com"
+          },
+          "Action": "sts:AssumeRole"
+        }
+      ]
+    }
+  maxSessionDuration: 3600
+  path: "/"
+  tags:
+  - key: Name
+    value: ACK-Example-Role
+  - key: Environment
+    value: development
+  - key: Project
+    value: platform-vibez
+  - key: ManagedBy
+    value: ack-controller
+---
+apiVersion: iam.services.k8s.aws/v1alpha1
+kind: Policy
+metadata:
+  name: ack-example-policy
+  labels:
+    app: example-app
+    environment: development
+    managed-by: ack
+spec:
+  name: ACK-Example-Policy
+  description: "Example IAM policy created via ACK for platform-vibez"
+  path: "/"
+  policyDocument: |
+    {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Action": [
+            "s3:GetObject",
+            "s3:ListBucket"
+          ],
+          "Resource": "*"
+        }
+      ]
+    } 

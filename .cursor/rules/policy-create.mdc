@@ -46,6 +46,57 @@
 
 3. **"Are there any exceptions or special cases to consider?"** (Should it exclude certain namespaces, labels, etc.?)
 
+4. **"How should this policy handle namespace exclusions?"** 
+   
+   **FIRST: Discover existing namespaces in the cluster:**
+   ```bash
+   # Get all namespaces with labels and age for analysis
+   kubectl get namespaces -o wide --show-labels
+   
+   # Categorize namespaces by type
+   kubectl get namespaces -o custom-columns=NAME:.metadata.name,STATUS:.status.phase,LABELS:.metadata.labels
+   
+   # Count total namespaces for coverage calculation
+   kubectl get namespaces --no-headers | wc -l
+   ```
+   
+   **Analyze the discovered namespaces and categorize them:**
+   - **System namespaces**: `kube-system`, `kube-public`, `kube-node-lease`, `kube-node-lease`
+   - **Platform namespaces**: Look for `crossplane-system`, `upbound-system`, `cert-manager`, `ingress-nginx`, `monitoring`, `logging`, etc.
+   - **Application namespaces**: User workload namespaces (usually without `kube-` or `-system` suffixes)
+   - **Special namespaces**: Any with special labels or purposes
+   
+   **Then choose from these numbered options based on your findings:**
+   
+   **1. No exclusions** - Apply policy to ALL [X] namespaces discovered
+      - Most restrictive approach
+      - Enforces consistency across entire cluster
+      - Use when: Policy is essential for security/compliance
+   
+   **2. Exclude system namespaces only** ⭐ **RECOMMENDED** ⭐
+      - Excludes: [List the actual system namespaces found]
+      - Covers: [X]/[Y] namespaces ([Z]% coverage)
+      - Balances security with operational stability
+      - Use when: Policy targets user workloads but shouldn't break cluster components
+   
+   **3. Exclude system + platform namespaces**
+      - Excludes: [List actual system + platform namespaces found]
+      - Covers: [X]/[Y] namespaces ([Z]% coverage)
+      - Allows platform tools to operate freely
+      - Use when: Policy might conflict with platform operator requirements
+   
+   **4. Include only specific namespaces**
+      - Apply policy only to explicitly listed namespaces from: [list discovered application namespaces]
+      - Most targeted approach
+      - Use when: Policy is experimental or environment-specific
+   
+   **5. Custom exclusion list**
+      - User-defined list of namespaces to exclude from: [list all discovered namespaces]
+      - Use when: Specific applications need exemptions
+   
+   **💡 Dynamic Platform Engineering Recommendation:**
+   Based on the discovered namespaces, provide a specific recommendation with exact counts and coverage percentages. Typically **Option 2** is recommended as it maintains platform stability while enforcing governance on user workloads.
+
 **After Policy Creation:**
 1. **MANDATORY VALIDATION**: Before asking about testing, verify your policy actually covers what the user requested:
    - If user said "ALL" resources: Count and list exactly how many resource types you included

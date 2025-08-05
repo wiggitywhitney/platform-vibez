@@ -3,124 +3,147 @@ kind: ClusterPolicy
 metadata:
   name: enforce-aws-us-east-1-region
   annotations:
-    policies.kyverno.io/category: Platform Governance
-    policies.kyverno.io/description: "Enforces that all AWS resources must be created in us-east-1 region only"
-    policies.kyverno.io/subject: "AWS Resources"
-    policies.kyverno.io/minversion: "1.6.0"
+    policies.kyverno.io/category: Platform Security
+    policies.kyverno.io/description: "Enforces that all AWS resources must use us-east-1 region for compliance and cost optimization"
 spec:
   background: true
   validationFailureAction: Enforce
   rules:
-  - name: enforce-aws-region-all
+  - name: enforce-ec2-region-us-east-1
     match:
-      any:
-      - resources:
-          kinds:
-          # ALL AWS EC2 Resources - Complete Coverage (101 Resources)
-          - AMI
-          - AMICopy
-          - AMILaunchPermission
-          - AvailabilityZoneGroup
-          - CapacityReservation
-          - CarrierGateway
-          - CustomerGateway
-          - DefaultNetworkACL
-          - DefaultRouteTable
-          - DefaultSecurityGroup
-          - DefaultSubnet
-          - DefaultVPC
-          - DefaultVPCDHCPOptions
-          - EBSDefaultKMSKey
-          - EBSEncryptionByDefault
-          - EBSSnapshot
-          - EBSSnapshotCopy
-          - EBSSnapshotImport
-          - EBSVolume
-          - EgressOnlyInternetGateway
-          - EIP
-          - EIPAssociation
-          - Fleet
-          - FlowLog
-          - Host
-          - Instance
-          - InstanceState
-          - InternetGateway
-          - KeyPair
-          - LaunchTemplate
-          - MainRouteTableAssociation
-          - ManagedPrefixList
-          - ManagedPrefixListEntry
-          - NATGateway
-          - NetworkACL
-          - NetworkACLRule
-          - NetworkInsightsAnalysis
-          - NetworkInsightsPath
-          - NetworkInterface
-          - NetworkInterfaceAttachment
-          - NetworkInterfaceSgAttachment
-          - PlacementGroup
-          - Route
-          - RouteTable
-          - RouteTableAssociation
-          - SecurityGroup
-          - SecurityGroupEgressRule
-          - SecurityGroupIngressRule
-          - SecurityGroupRule
-          - SerialConsoleAccess
-          - SnapshotCreateVolumePermission
-          - SpotDatafeedSubscription
-          - SpotFleetRequest
-          - SpotInstanceRequest
-          - Subnet
-          - SubnetCidrReservation
-          - Tag
-          - TrafficMirrorFilter
-          - TrafficMirrorFilterRule
-          - TransitGateway
-          - TransitGatewayConnect
-          - TransitGatewayConnectPeer
-          - TransitGatewayMulticastDomain
-          - TransitGatewayMulticastDomainAssociation
-          - TransitGatewayMulticastGroupMember
-          - TransitGatewayMulticastGroupSource
-          - TransitGatewayPeeringAttachment
-          - TransitGatewayPeeringAttachmentAccepter
-          - TransitGatewayPolicyTable
-          - TransitGatewayPrefixListReference
-          - TransitGatewayRoute
-          - TransitGatewayRouteTable
-          - TransitGatewayRouteTableAssociation
-          - TransitGatewayRouteTablePropagation
-          - TransitGatewayVPCAttachment
-          - TransitGatewayVPCAttachmentAccepter
-          - VolumeAttachment
-          - VPC
-          - VPCDHCPOptions
-          - VPCDHCPOptionsAssociation
-          - VPCEndpoint
-          - VPCEndpointConnectionNotification
-          - VPCEndpointRouteTableAssociation
-          - VPCEndpointSecurityGroupAssociation
-          - VPCEndpointService
-          - VPCEndpointServiceAllowedPrincipal
-          - VPCEndpointSubnetAssociation
-          - VPCIpam
-          - VPCIpamPool
-          - VPCIpamPoolCidr
-          - VPCIpamPoolCidrAllocation
-          - VPCIpamScope
-          - VPCIPv4CidrBlockAssociation
-          - VPCPeeringConnection
-          - VPCPeeringConnectionAccepter
-          - VPCPeeringConnectionOptions
-          - VPNConnection
-          - VPNConnectionRoute
-          - VPNGateway
-          - VPNGatewayAttachment
-          - VPNGatewayRoutePropagation
+      resources:
+        kinds:
+        - ec2.aws.upbound.io/v1beta1/AMI
+        - ec2.aws.upbound.io/v1beta1/AMICopy
+        - ec2.aws.upbound.io/v1beta1/AMILaunchPermission
+        - ec2.aws.upbound.io/v1beta1/AvailabilityZoneGroup
+        - ec2.aws.upbound.io/v1beta1/CapacityReservation
+        - ec2.aws.upbound.io/v1beta1/CarrierGateway
+        - ec2.aws.upbound.io/v1beta1/CustomerGateway
+        - ec2.aws.upbound.io/v1beta1/DefaultNetworkACL
+        - ec2.aws.upbound.io/v1beta1/DefaultRouteTable
+        - ec2.aws.upbound.io/v1beta1/DefaultSecurityGroup
+        - ec2.aws.upbound.io/v1beta1/DefaultSubnet
+        - ec2.aws.upbound.io/v1beta1/DefaultVPC
+        - ec2.aws.upbound.io/v1beta1/DefaultVPCDHCPOptions
+        - ec2.aws.upbound.io/v1beta1/EBSDefaultKMSKey
+        - ec2.aws.upbound.io/v1beta1/EBSEncryptionByDefault
+        - ec2.aws.upbound.io/v1beta1/EBSSnapshot
+        - ec2.aws.upbound.io/v1beta1/EBSSnapshotCopy
+        - ec2.aws.upbound.io/v1beta2/EBSSnapshotImport
+        - ec2.aws.upbound.io/v1beta1/EBSVolume
+        - ec2.aws.upbound.io/v1beta1/EgressOnlyInternetGateway
+        - ec2.aws.upbound.io/v1beta1/EIP
+        - ec2.aws.upbound.io/v1beta1/EIPAssociation
+        - ec2.aws.upbound.io/v1beta1/Fleet
+        - ec2.aws.upbound.io/v1beta2/FlowLog
+        - ec2.aws.upbound.io/v1beta1/Host
+        - ec2.aws.upbound.io/v1beta2/Instance
+        - ec2.aws.upbound.io/v1beta1/InstanceState
+        - ec2.aws.upbound.io/v1beta1/InternetGateway
+        - ec2.aws.upbound.io/v1beta1/KeyPair
+        - ec2.aws.upbound.io/v1beta2/LaunchTemplate
+        - ec2.aws.upbound.io/v1beta1/MainRouteTableAssociation
+        - ec2.aws.upbound.io/v1beta1/ManagedPrefixList
+        - ec2.aws.upbound.io/v1beta1/ManagedPrefixListEntry
+        - ec2.aws.upbound.io/v1beta1/NATGateway
+        - ec2.aws.upbound.io/v1beta1/NetworkACL
+        - ec2.aws.upbound.io/v1beta1/NetworkACLRule
+        - ec2.aws.upbound.io/v1beta1/NetworkInsightsAnalysis
+        - ec2.aws.upbound.io/v1beta1/NetworkInsightsPath
+        - ec2.aws.upbound.io/v1beta1/NetworkInterface
+        - ec2.aws.upbound.io/v1beta1/NetworkInterfaceAttachment
+        - ec2.aws.upbound.io/v1beta1/NetworkInterfaceSgAttachment
+        - ec2.aws.upbound.io/v1beta1/PlacementGroup
+        - ec2.aws.upbound.io/v1beta2/Route
+        - ec2.aws.upbound.io/v1beta1/RouteTable
+        - ec2.aws.upbound.io/v1beta1/RouteTableAssociation
+        - ec2.aws.upbound.io/v1beta1/SecurityGroup
+        - ec2.aws.upbound.io/v1beta1/SecurityGroupEgressRule
+        - ec2.aws.upbound.io/v1beta1/SecurityGroupIngressRule
+        - ec2.aws.upbound.io/v1beta1/SecurityGroupRule
+        - ec2.aws.upbound.io/v1beta1/SerialConsoleAccess
+        - ec2.aws.upbound.io/v1beta1/SnapshotCreateVolumePermission
+        - ec2.aws.upbound.io/v1beta1/SpotDatafeedSubscription
+        - ec2.aws.upbound.io/v1beta2/SpotFleetRequest
+        - ec2.aws.upbound.io/v1beta2/SpotInstanceRequest
+        - ec2.aws.upbound.io/v1beta1/Subnet
+        - ec2.aws.upbound.io/v1beta1/SubnetCidrReservation
+        - ec2.aws.upbound.io/v1beta1/Tag
+        - ec2.aws.upbound.io/v1beta1/TrafficMirrorFilter
+        - ec2.aws.upbound.io/v1beta2/TrafficMirrorFilterRule
+        - ec2.aws.upbound.io/v1beta1/TransitGateway
+        - ec2.aws.upbound.io/v1beta1/TransitGatewayConnect
+        - ec2.aws.upbound.io/v1beta1/TransitGatewayConnectPeer
+        - ec2.aws.upbound.io/v1beta1/TransitGatewayMulticastDomain
+        - ec2.aws.upbound.io/v1beta1/TransitGatewayMulticastDomainAssociation
+        - ec2.aws.upbound.io/v1beta1/TransitGatewayMulticastGroupMember
+        - ec2.aws.upbound.io/v1beta1/TransitGatewayMulticastGroupSource
+        - ec2.aws.upbound.io/v1beta1/TransitGatewayPeeringAttachment
+        - ec2.aws.upbound.io/v1beta1/TransitGatewayPeeringAttachmentAccepter
+        - ec2.aws.upbound.io/v1beta1/TransitGatewayPolicyTable
+        - ec2.aws.upbound.io/v1beta1/TransitGatewayPrefixListReference
+        - ec2.aws.upbound.io/v1beta1/TransitGatewayRoute
+        - ec2.aws.upbound.io/v1beta1/TransitGatewayRouteTable
+        - ec2.aws.upbound.io/v1beta1/TransitGatewayRouteTableAssociation
+        - ec2.aws.upbound.io/v1beta1/TransitGatewayRouteTablePropagation
+        - ec2.aws.upbound.io/v1beta1/TransitGatewayVPCAttachment
+        - ec2.aws.upbound.io/v1beta1/TransitGatewayVPCAttachmentAccepter
+        - ec2.aws.upbound.io/v1beta1/VolumeAttachment
+        - ec2.aws.upbound.io/v1beta1/VPC
+        - ec2.aws.upbound.io/v1beta1/VPCDHCPOptions
+        - ec2.aws.upbound.io/v1beta1/VPCDHCPOptionsAssociation
+        - ec2.aws.upbound.io/v1beta2/VPCEndpoint
+        - ec2.aws.upbound.io/v1beta1/VPCEndpointConnectionNotification
+        - ec2.aws.upbound.io/v1beta1/VPCEndpointRouteTableAssociation
+        - ec2.aws.upbound.io/v1beta1/VPCEndpointSecurityGroupAssociation
+        - ec2.aws.upbound.io/v1beta1/VPCEndpointService
+        - ec2.aws.upbound.io/v1beta1/VPCEndpointServiceAllowedPrincipal
+        - ec2.aws.upbound.io/v1beta1/VPCEndpointSubnetAssociation
+        - ec2.aws.upbound.io/v1beta1/VPCIpam
+        - ec2.aws.upbound.io/v1beta1/VPCIpamPool
+        - ec2.aws.upbound.io/v1beta2/VPCIpamPoolCidr
+        - ec2.aws.upbound.io/v1beta1/VPCIpamPoolCidrAllocation
+        - ec2.aws.upbound.io/v1beta1/VPCIpamScope
+        - ec2.aws.upbound.io/v1beta1/VPCIPv4CidrBlockAssociation
+        - ec2.aws.upbound.io/v1beta2/VPCPeeringConnection
+        - ec2.aws.upbound.io/v1beta2/VPCPeeringConnectionAccepter
+        - ec2.aws.upbound.io/v1beta2/VPCPeeringConnectionOptions
+        - ec2.aws.upbound.io/v1beta2/VPNConnection
+        - ec2.aws.upbound.io/v1beta1/VPNConnectionRoute
+        - ec2.aws.upbound.io/v1beta1/VPNGateway
+        - ec2.aws.upbound.io/v1beta1/VPNGatewayAttachment
+        - ec2.aws.upbound.io/v1beta1/VPNGatewayRoutePropagation
+    exclude:
+      resources:
+        namespaces:
+        - kube-system
+        - kube-public
+        - kube-node-lease
+        - crossplane-system
+        - upbound-system
     validate:
-      message: "AWS resources must be created in us-east-1 region only. Found region: {{ request.object.spec.forProvider.region || 'not specified' }}"
+      message: "AWS EC2 resources must use us-east-1 region for compliance. Current region: {{request.object.spec.forProvider.region}}"
       pattern:
         spec:
           forProvider:
-                        region: "us-east-1" 
+            region: "us-east-1"
+  - name: enforce-providerconfig-region-us-east-1
+    match:
+      resources:
+        kinds:
+        - aws.upbound.io/v1beta1/ProviderConfig
+    exclude:
+      resources:
+        namespaces:
+        - kube-system
+        - kube-public
+        - kube-node-lease
+        - crossplane-system
+        - upbound-system
+    validate:
+      message: "AWS ProviderConfig must use us-east-1 as signingRegion for compliance. Current signingRegion: {{request.object.spec.endpoint.signingRegion}}"
+      pattern:
+        spec:
+          endpoint:
+            signingRegion: "us-east-1" 

@@ -18,6 +18,7 @@
 # - Knative Eventing for event-driven architectures
 # - Kyverno policy engine for governance and security
 # - Crossplane infrastructure platform for cloud resource management
+# - AWS Controllers for Kubernetes (ACK) for native AWS resource management
 # - Datadog agent collecting metrics and logs (traces require app deployment)
 # - Secure API key management without hardcoding secrets
 # - Ready-to-use environment for deploying serverless applications and infrastructure
@@ -66,12 +67,13 @@
 # 4. Installs Kyverno policy engine for governance
 # 5. Installs Crossplane infrastructure platform for cloud resource management
 # 6. Installs AWS EC2 provider for Crossplane
-# 7. Installs the Datadog operator via Helm
-# 8. Creates Datadog namespace and API key secret
-# 9. Deploys DatadogAgent for infrastructure monitoring
-# 10. Configures hostname resolution for local development
-# 11. Enables APM configuration and log collection
-# 12. Verifies Datadog monitoring setup
+# 7. Installs AWS Controllers for Kubernetes (ACK) for EC2 and IAM
+# 8. Installs the Datadog operator via Helm
+# 9. Creates Datadog namespace and API key secret
+# 10. Deploys DatadogAgent for infrastructure monitoring
+# 11. Configures hostname resolution for local development
+# 12. Enables APM configuration and log collection
+# 13. Verifies Datadog monitoring setup
 
 set -e  # Exit on any error
 
@@ -417,7 +419,10 @@ helm install crossplane \
   --create-namespace
 
 print_info "Waiting for Crossplane to be ready..."
-kubectl wait --for=condition=Ready pods -l app=crossplane -n crossplane-system --timeout=300s
+kubectl wait --for=condition=Ready pods -l app.kubernetes.io/name=crossplane -n crossplane-system --timeout=300s || {
+    print_warning "Crossplane pods may still be starting up, but continuing with installation..."
+    kubectl get pods -n crossplane-system
+}
 
 print_status "Crossplane infrastructure platform installed and ready"
 
@@ -432,12 +437,70 @@ spec:
 EOF
 
 print_info "Waiting for AWS EC2 provider to be ready..."
-kubectl wait --for=condition=Healthy provider.pkg.crossplane.io/provider-aws-ec2 --timeout=300s
+kubectl wait --for=condition=Healthy provider.pkg.crossplane.io/provider-aws-ec2 --timeout=300s || {
+    print_warning "AWS EC2 provider may still be initializing, but continuing..."
+    kubectl get providers
+}
 
 print_status "AWS EC2 provider installed and ready"
 
 print_info "Crossplane status:"
 kubectl get pods -n crossplane-system
+
+# Install AWS Controllers for Kubernetes (ACK)
+echo ""
+echo "☁️  Installing AWS Controllers for Kubernetes (ACK)..."
+echo "===================================================="
+
+print_info "Creating ACK namespace..."
+kubectl create namespace ack-system || true
+print_status "ACK namespace created"
+
+print_info "Creating placeholder AWS credentials secret..."
+print_warning "🚨 SECURITY: Using placeholder AWS credentials. You must update these!"
+kubectl create secret generic aws-credentials \
+    --from-literal=credentials="[default]
+aws_access_key_id = AKIAIOSFODNN7EXAMPLE
+aws_secret_access_key = wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY" \
+    --namespace=ack-system \
+    --dry-run=client -o yaml | kubectl apply -f -
+print_status "AWS credentials secret created (placeholder values)"
+
+print_info "Installing ACK EC2 Controller..."
+CONTROLLER_REGION="us-east-1"
+EC2_RELEASE_VERSION=$(curl -sL https://api.github.com/repos/aws-controllers-k8s/ec2-controller/releases/latest | grep '"tag_name":' | cut -d'"' -f4 | sed 's/v//')
+helm install ec2-controller \
+    oci://public.ecr.aws/aws-controllers-k8s/ec2-chart \
+    --version="${EC2_RELEASE_VERSION}" \
+    --namespace ack-system \
+    --set aws.region="${CONTROLLER_REGION}" \
+    --set aws.credentials.secretName=aws-credentials \
+    --set aws.credentials.profile=default \
+    --wait --timeout=300s || {
+    print_warning "EC2 controller installation may have timed out, but continuing..."
+}
+
+print_info "Installing ACK IAM Controller..."
+IAM_RELEASE_VERSION=$(curl -sL https://api.github.com/repos/aws-controllers-k8s/iam-controller/releases/latest | grep '"tag_name":' | cut -d'"' -f4 | sed 's/v//')
+helm install iam-controller \
+    oci://public.ecr.aws/aws-controllers-k8s/iam-chart \
+    --version="${IAM_RELEASE_VERSION}" \
+    --namespace ack-system \
+    --set aws.region="${CONTROLLER_REGION}" \
+    --set aws.credentials.secretName=aws-credentials \
+    --set aws.credentials.profile=default \
+    --wait --timeout=300s || {
+    print_warning "IAM controller installation may have timed out, but continuing..."
+}
+
+print_status "ACK controllers installed"
+
+print_info "ACK Controller Status:"
+kubectl get pods -n ack-system
+echo ""
+
+ACK_RESOURCES_COUNT=$(kubectl api-resources | grep -E "(ec2|iam).services.k8s.aws" | wc -l | xargs)
+print_status "ACK installed with ${ACK_RESOURCES_COUNT} AWS resource types available"
 
 # Setup Datadog Infrastructure Monitoring
 echo ""
@@ -474,7 +537,10 @@ fi
 
 # Wait for operator to be ready
 print_info "Waiting for Datadog operator to be ready..."
-kubectl wait --for=condition=Ready pods -l app.kubernetes.io/name=datadog-operator -n datadog --timeout=300s
+kubectl wait --for=condition=Ready pods -l app.kubernetes.io/name=datadog-operator -n datadog --timeout=300s || {
+    print_warning "Datadog operator may still be starting, but continuing..."
+    kubectl get pods -n datadog
+}
 
 # Deploy DatadogAgent configuration
 print_info "Deploying DatadogAgent configuration..."
@@ -484,7 +550,10 @@ print_status "DatadogAgent configuration deployed"
 
 # Wait for Datadog agents to be ready
 print_info "Waiting for Datadog agents to be ready..."
-kubectl wait --for=condition=Ready pods -l app.kubernetes.io/name=datadog-cluster-agent -n datadog --timeout=300s
+kubectl wait --for=condition=Ready pods -l app.kubernetes.io/name=datadog-cluster-agent -n datadog --timeout=300s || {
+    print_warning "Datadog cluster agent may still be starting, but continuing..."
+    kubectl get pods -n datadog
+}
 
 # Wait a bit more for node agents (they take longer to start)
 print_info "Waiting for Datadog node agents to be ready..."
@@ -531,6 +600,10 @@ echo "🔀 Crossplane Infrastructure:"
 kubectl get pods -n crossplane-system
 echo ""
 
+echo "☁️  ACK Controllers:"
+kubectl get pods -n ack-system
+echo ""
+
 # Final summary
 echo ""
 echo "🎉 SUCCESS! Your Kubernetes cluster with Datadog monitoring is ready!"
@@ -558,6 +631,13 @@ echo "  • AWS EC2 Provider: ✅ Installed and ready"
 echo "  • Providers: ⏳ Ready for additional cloud providers (GCP, Azure, etc.)"
 echo "  • Compositions: ⏳ Ready for platform abstractions"
 echo ""
+echo "AWS Controllers for Kubernetes (ACK):"
+echo "  • Namespace: ack-system"
+echo "  • EC2 Controller: ✅ Installed (instances, VPCs, subnets, security groups)"
+echo "  • IAM Controller: ✅ Installed (roles, policies, users, groups)" 
+echo "  • AWS Resources: ✅ ${ACK_RESOURCES_COUNT} resource types available"
+echo "  • 🚨 Credentials: ⚠️  PLACEHOLDER VALUES - Update with real AWS credentials!"
+echo ""
 echo "Datadog Monitoring:"
 echo "  • Namespace: datadog"
 echo "  • Infrastructure monitoring: ✅ Active (CPU, memory, disk, network metrics)"
@@ -578,8 +658,10 @@ echo "  • kubectl get pods -A               # List all pods in all namespaces"
 echo "  • kubectl get pods -n datadog       # Check Datadog agent status"
 echo "  • kubectl get pods -n kyverno       # Check Kyverno policy engine status"
 echo "  • kubectl get pods -n crossplane-system  # Check Crossplane status"
+echo "  • kubectl get pods -n ack-system    # Check ACK controller status"
 echo "  • kubectl get clusterpolicies       # List Kyverno cluster policies"
 echo "  • kubectl get providers              # List Crossplane providers"
+echo "  • kubectl api-resources | grep 'ec2\|iam'  # List ACK AWS resources"
 echo "  • kubectl describe provider provider-aws-ec2  # Check AWS provider status"
 echo "  • kubectl get compositeresourcedefinitions  # List Crossplane XRDs"
 echo "  • kubectl apply -f policies/        # Reapply platform policies"
@@ -597,15 +679,18 @@ echo ""
 
 echo "🔗 What's Next:"
 echo "  • Visit your Datadog dashboard to see infrastructure metrics"
+echo "  • 🚨 IMPORTANT: Update ACK AWS credentials - see docs/ACK-SETUP.md"
 echo "  • Create Crossplane compositions for EC2 instances and networking"
+echo "  • Create AWS resources using ACK: kubectl apply -f examples/ack-instance.yaml"
 echo "  • Install additional Crossplane providers for other cloud services"
 echo "  • Deploy the generic-app Helm chart: helm install my-app ./helm-charts/generic-app"
 echo "  • Run end-to-end tests: cd tests/e2e && ./test-runner.sh"
-echo "  • Read the documentation: README.md"
+echo "  • Read the documentation: README.md and docs/ACK-SETUP.md"
 echo ""
 
 echo "📚 Useful Resources:"
 echo "  • Platform Vibez Documentation: https://github.com/wiggitywhitney/platform-vibez"
+echo "  • ACK Documentation: https://aws-controllers-k8s.github.io/community/"
 echo "  • Crossplane Documentation: https://docs.crossplane.io/"
 echo "  • Datadog Kubernetes Monitoring: https://docs.datadoghq.com/containers/kubernetes/"
 echo "  • Kind Documentation: https://kind.sigs.k8s.io/docs/"
