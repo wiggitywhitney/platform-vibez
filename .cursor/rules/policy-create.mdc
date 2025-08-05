@@ -109,9 +109,267 @@
    - List any resource types excluded and why
    
 3. **ALWAYS ask: "Would you like to test the policy?"**
-   - If yes, perform both positive and negative test cases
+   - If yes, perform COMPREHENSIVE testing following the mandatory test matrix below
    - After testing, ALWAYS clean up test resources (namespaces, deployments, etc.)
    - Show clear test results and explain what was tested
+
+## 🧪 MANDATORY COMPREHENSIVE TESTING MATRIX
+
+**CRITICAL REQUIREMENT**: You MUST test EVERY policy mechanism used. Each different policy type and validation method requires specific test approaches.
+
+### **STEP 0: CLASSIFY YOUR POLICY TYPE**
+
+Before testing, identify what your policy actually does:
+- 🛡️ **Validation Policy**: Allows/blocks resources based on criteria
+- 🔧 **Mutation Policy**: Modifies resources before creation (adds/changes fields)
+- 🏗️ **Generation Policy**: Creates additional resources automatically
+- 🔄 **Background Policy**: Continuously validates existing resources
+- 🌐 **Webhook Policy**: Uses external validation/mutation services
+
+### **STEP 1: IDENTIFY ALL POLICY MECHANISMS IN YOUR POLICY**
+
+List every mechanism used (regardless of resource type):
+- ✅ **Field validation** (any field path: `spec.image`, `metadata.labels.env`, `spec.containers[].resources`)
+- ✅ **Pattern matching** (`image: "!*:latest"`, `name: "prod-*"`, `tag: "v[0-9]*"`)
+- ✅ **Array/list validation** (all containers, all volumes, all ingress rules)
+- ✅ **Conditional logic** (if environment=prod then require X)
+- ✅ **Cross-field validation** (service selector must match deployment labels)
+- ✅ **Annotation/label requirements** (governance, compliance tagging)
+- ✅ **Resource existence checks** (references to ConfigMaps, Secrets, etc.)
+- ✅ **CEL expressions** (complex logic, calculations, transformations)
+- ✅ **JMESPath queries** (complex field traversal and filtering)
+- ✅ **Deny conditions** (blocking specific operations/patterns)
+- ✅ **AnyPattern/AllPattern logic** (multiple acceptable alternatives)
+
+### **STEP 2: MANDATORY TESTS BY POLICY TYPE**
+
+**🛡️ VALIDATION POLICY TESTS:**
+- ✅ **Positive**: Compliant resources → ALLOWED (verify creation with `kubectl get`)
+- ❌ **Negative**: Non-compliant resources → BLOCKED (verify rejection, not creation)
+- 🔍 **Edge cases**: Boundary values, empty fields, null values, special characters
+
+**🔧 MUTATION POLICY TESTS:**
+- ✅ **Mutation Success**: Resource modified correctly → VERIFY ACTUAL CHANGES
+- ✅ **Mutation Idempotent**: Already-correct resource → NO UNWANTED CHANGES  
+- ❌ **Mutation Failure**: Invalid mutation → VERIFY ERROR HANDLING
+- 🔍 **Edge cases**: Missing fields, conflicting values, complex nested structures
+
+**🏗️ GENERATION POLICY TESTS:**
+- ✅ **Generation Success**: Trigger resource → VERIFY ALL GENERATED RESOURCES EXIST
+- ✅ **Generation Idempotent**: Re-apply trigger → NO DUPLICATE RESOURCES
+- ❌ **Generation Failure**: Invalid trigger → VERIFY CLEAN ERROR STATE
+- 🔍 **Edge cases**: Missing dependencies, circular references, resource conflicts
+
+**🔄 BACKGROUND POLICY TESTS:**
+- ✅ **Continuous Validation**: Create non-compliant resource → VERIFY ONGOING ENFORCEMENT
+- ✅ **Resource Updates**: Modify existing resource → VERIFY POLICY STILL APPLIES
+- ❌ **Policy Violation**: Break compliance → VERIFY DETECTION AND ACTION
+- 🔍 **Edge cases**: Large scale, performance impact, race conditions
+
+**🌐 WEBHOOK POLICY TESTS:**
+- ✅ **Webhook Available**: Normal operations → VERIFY EXPECTED BEHAVIOR
+- ❌ **Webhook Unavailable**: Network/service issues → VERIFY FALLBACK BEHAVIOR
+- ⏱️ **Webhook Timeout**: Slow responses → VERIFY TIMEOUT HANDLING
+- 🔍 **Edge cases**: Malformed responses, authentication failures, rate limiting
+
+### **STEP 3: UNIVERSAL MECHANISM VERIFICATION**
+
+**CRITICAL**: For each policy mechanism, you must verify:
+- ✅ **Field paths exist** (use `kubectl explain <resource>.spec.fieldPath` for verification)
+- ✅ **Pattern matching accuracy** (test valid patterns, invalid patterns, edge cases)
+- ✅ **Array/list logic** (empty arrays, single items, multiple items, invalid items)
+- ✅ **Conditional logic flow** (all branches, edge conditions, nested conditions)
+- ✅ **Cross-resource references** (valid refs, invalid refs, missing refs, circular refs)
+- ✅ **CEL/JMESPath expressions** (valid syntax, correct results, error handling)
+- ✅ **Performance impact** (large resources, complex queries, bulk operations)
+- ✅ **Error messages clarity** (actionable guidance for each failure mode)
+
+### **STEP 4: RESOURCE CAPABILITY DISCOVERY & TESTING**
+
+**CAPABILITY-BASED DISCOVERY** (not just name-based):
+```bash
+# Find resources with specific capabilities
+kubectl api-resources --verbs=list -o wide | grep -E "(namespaced|cluster-scoped)"
+
+# Resources with container specs (for image/security policies)
+for resource in deployment daemonset statefulset job cronjob pod; do
+  kubectl explain $resource.spec.containers 2>/dev/null && echo "$resource has containers"
+done
+
+# Resources with resource limits (for resource policies)  
+for resource in deployment daemonset statefulset job cronjob pod; do
+  kubectl explain $resource.spec.containers.resources 2>/dev/null && echo "$resource has resource limits"
+done
+
+# Resources with metadata (for label/annotation policies)
+kubectl api-resources --verbs=list | awk '{print $1}' | xargs -I {} kubectl explain {}.metadata 2>/dev/null | grep -B1 "labels\|annotations"
+```
+
+**CROSS-CAPABILITY TESTING:**
+1. **Test ALL resource types** that have the target capability (not just popular ones)
+2. **Verify field structure variations** (e.g., `spec.containers` vs `spec.template.spec.containers`)
+3. **Test mixed scenarios** (valid + invalid resources in same operation)
+4. **Confirm scope exclusions** (namespaces, labels, resource types) work correctly
+5. **Test resource relationships** (Services → Deployments, ConfigMaps → Pods, etc.)
+
+### **STEP 5: UNIVERSAL POST-TEST VALIDATION CHECKLIST**
+
+**POLICY BEHAVIOR VERIFICATION:**
+- [ ] **Every policy mechanism has appropriate test cases** (by policy type)
+- [ ] **Actual behavior matches expected behavior** (validation/mutation/generation/background)
+- [ ] **Resource state verification** (created/blocked/modified/generated as expected)
+- [ ] **Error handling robustness** (failures produce clear, actionable messages)
+- [ ] **Policy scope accuracy** (covers requested resources, excludes intended exceptions)
+
+**SECURITY & RELIABILITY VERIFICATION:**
+- [ ] **No false positives** (correct resources inappropriately affected)
+- [ ] **No false negatives** (incorrect resources inappropriately allowed)
+- [ ] **No bypass mechanisms** (overly permissive patterns, logic holes)
+- [ ] **Performance acceptable** (policy doesn't significantly impact cluster operations)
+- [ ] **Edge case handling** (empty values, null fields, malformed data)
+
+### **STEP 6: MANDATORY CLEANUP & VERIFICATION** 🧹
+
+**🚨 CRITICAL: TESTING IS NOT COMPLETE UNTIL CLEANUP IS VERIFIED 🚨**
+
+**CLEANUP REQUIREMENTS:**
+```bash
+# 1. Remove ALL test namespaces
+kubectl get namespaces | grep "test\|policy-test"
+kubectl delete namespace <list-all-test-namespaces>
+
+# 2. Remove ALL test files  
+ls test-*.yaml 2>/dev/null && rm -f test-*.yaml
+ls *test*.yaml 2>/dev/null && rm -f *test*.yaml
+
+# 3. Verify cluster is clean
+kubectl get all -A | grep -E "(test|policy-test)" || echo "✅ Cluster clean"
+
+# 4. Verify filesystem is clean  
+ls test-* 2>/dev/null || echo "✅ Files clean"
+```
+
+**CLEANUP VERIFICATION CHECKLIST:**
+- [ ] **All test namespaces removed** (verified with `kubectl get namespaces`)
+- [ ] **All test files removed** (verified with `ls test-*`)
+- [ ] **No test resources in cluster** (verified with `kubectl get all -A | grep test`)
+- [ ] **Cluster returned to original state** (no artifacts from testing remain)
+
+**❌ DO NOT MARK TESTING COMPLETE WITHOUT CLEANUP VERIFICATION ❌**
+
+**If cleanup fails:**
+- Document what couldn't be cleaned up and why
+- Provide manual cleanup instructions for next operator
+- Mark testing as "INCOMPLETE" until cleanup is resolved
+
+## 🚨 UNIVERSAL TESTING ANTI-PATTERNS
+
+**Policy-Type-Agnostic Mistakes:**
+- ❌ **Testing only happy path** (works for validation, mutation, generation, background)
+- ❌ **Assuming behavior without verification** (applies to all policy types)
+- ❌ **Testing only popular resource types** (missing edge cases across all policies)
+- ❌ **Not verifying actual state changes** (critical for mutation/generation policies)
+- ❌ **Ignoring performance impact** (especially critical for background policies)
+- ❌ **Skipping error condition testing** (essential for webhook/external policies)
+
+**Logic & Pattern Mistakes:**
+- ❌ **Overly permissive patterns** (`metadata.name: "?*"`, `spec: "?*"`)
+- ❌ **Wrong field path assumptions** (not using `kubectl explain` to verify)
+- ❌ **Incomplete array/list validation** (testing single items, ignoring edge cases)
+- ❌ **Missing conditional branch testing** (testing only one path of if/then logic)
+- ❌ **Placeholder patterns in production** (temporary patterns that become permanent)
+
+**Resource & Scope Mistakes:**
+- ❌ **Name-based resource discovery only** (missing capability-based discovery)
+- ❌ **Single API group focus** (ignoring core K8s, CRDs, operators)
+- ❌ **Namespace scope confusion** (not testing both namespaced and cluster resources)
+- ❌ **Resource relationship ignorance** (not testing cross-resource impacts)
+
+## 📋 TESTING EXECUTION REQUIREMENTS
+
+**When testing policies, follow this sequence:**
+1. **Create test resources for positive cases** → Verify they are created
+2. **Create test resources for negative cases** → Verify they are blocked  
+3. **Check kubectl get commands** → Confirm actual vs expected state
+4. **Review error messages** → Ensure they guide developers correctly
+5. **Test edge cases** → Boundary conditions and special scenarios
+6. **🧹 MANDATORY CLEANUP** → See STEP 6 above for detailed requirements
+
+**⚠️ REMINDER: Steps 1-5 are testing. Step 6 is MANDATORY for completion.**
+
+**Test Documentation Requirements:**
+- Document what each test validates
+- Show both the command and expected outcome
+- Explain why each negative test should fail
+- Provide clear success/failure criteria
+
+## 🎯 EXAMPLES: PROPER TESTING BY POLICY TYPE
+
+### **Validation Policy Example (Image Security)**
+```yaml
+# Image security policy: no latest tags, must be from approved registry
+
+✅ POSITIVE TESTS:
+- Pod with registry.company.com/app:v1.2.3 → ALLOWED
+- Deployment with registry.company.com/api:sha256:abc123 → ALLOWED
+
+❌ NEGATIVE TESTS:  
+- Pod with ubuntu:latest → BLOCKED
+- Deployment with docker.io/app:v1.0 → BLOCKED (wrong registry)
+```
+
+### **Mutation Policy Example (Resource Defaults)**
+```yaml
+# Mutation policy: add default resource limits if missing
+
+✅ MUTATION TESTS:
+- Pod without limits → VERIFY limits added (cpu: 100m, memory: 128Mi)
+- Deployment with partial limits → VERIFY only missing limits added
+- Pod with existing limits → VERIFY no changes made
+```
+
+### **Generation Policy Example (Service Mesh)**
+```yaml
+# Generate policy: create ServiceMonitor for services with monitoring=true
+
+✅ GENERATION TESTS:
+- Service with monitoring=true → VERIFY ServiceMonitor created
+- Service without annotation → VERIFY no ServiceMonitor created
+- Delete Service → VERIFY ServiceMonitor cleaned up
+```
+
+**UNIVERSAL PRINCIPLE**: Test that your policy does EXACTLY what it claims - no more, no less, regardless of policy type or resource.
+
+## ⚠️  CRITICAL VALIDATION LOGIC ERRORS TO AVOID
+
+**These validation mistakes create security gaps:**
+
+### 🚨 **Pattern Validation Errors**
+- ❌ **Using `metadata.name: "?*"`** (allows everything with any name)
+- ❌ **Overly permissive patterns** that don't actually restrict anything
+- ❌ **Wrong field paths** (e.g., `spec.region` when it should be `spec.forProvider.region`)
+- ❌ **Missing required fields** in validation patterns
+
+### 🚨 **Logic Flow Errors**  
+- ❌ **"Allow first, validate later"** approaches that create security holes
+- ❌ **Changing deny rules to allow rules** without proper validation
+- ❌ **Assuming validation works** without testing actual blocked resources
+- ❌ **Placeholder patterns** meant for testing that remain in production policies
+
+### 🚨 **Multi-Approach Validation Errors**
+- ❌ **Different validation methods for similar resources** without testing both
+- ❌ **Inconsistent security levels** between resource types
+- ❌ **Missing validation** for some resource categories
+- ❌ **Weak annotation-based controls** that can be easily bypassed
+
+### ✅ **CORRECT APPROACH: Validation Logic Verification**
+
+Before finalizing any policy:
+1. **List every validation pattern** used in your policy
+2. **Test each pattern** with valid and invalid inputs  
+3. **Verify field paths exist** in target resource schemas
+4. **Confirm blocked resources are actually blocked**
+5. **Ensure error messages guide users to correct solutions**
 
 ## 🚫 ANTI-PATTERNS TO AVOID
 
@@ -426,6 +684,50 @@ Before presenting any policy to the user, ask yourself:
 - User said "comprehensive" → No shortcuts, complete enumeration
 - User said "critical" → Bulletproof coverage, no gaps
 - Policy ready → Validated, tested, complete
+
+## 🎯 MANDATORY PRE-COMPLETION CHECKLIST
+
+**Before presenting any policy as "complete," verify ALL of these:**
+
+### **Policy Coverage Verification**
+- [ ] Policy covers exact number of resources discovered (e.g., 131/131)
+- [ ] No resource types were accidentally excluded
+- [ ] All validation approaches are actually restrictive (not permissive)
+
+### **Validation Logic Verification**  
+- [ ] Every validation pattern has been tested with valid inputs → PASS
+- [ ] Every validation pattern has been tested with invalid inputs → FAIL  
+- [ ] Field paths are correct for each resource type (verified with `kubectl explain`)
+- [ ] Error messages provide actionable guidance
+
+### **Test Case Completeness**
+- [ ] Positive tests created for each validation approach
+- [ ] Negative tests created for each validation approach  
+- [ ] Resources in positive tests were actually created successfully
+- [ ] Resources in negative tests were actually blocked (not created)
+- [ ] Multiple resource types tested from each API group
+
+### **Security Validation**
+- [ ] No "allow everything" patterns (e.g., `metadata.name: "?*"`)
+- [ ] No overly permissive validation that bypasses security controls
+- [ ] Annotation-based validations require specific, verifiable values
+- [ ] Deny conditions actually block resource creation when triggered
+
+### **Documentation & Cleanup**
+- [ ] Clear explanation of what each validation rule does
+- [ ] Test results documented with actual kubectl commands and outputs
+- [ ] **ALL test resources cleaned up from cluster** (STEP 6 completed)
+- [ ] **Cleanup verification completed** (no test artifacts remain)
+- [ ] Policy file saved in correct location (`policies/`)
+
+**🚨 CRITICAL: If ANY item above is unchecked, the policy is NOT ready for production.**
+
+**❓ SELF-VERIFICATION QUESTIONS:**
+1. "If I were an attacker, could I bypass any of these validation rules?"
+2. "Do my test results prove the policy actually enforces what I claim?"
+3. "Would a developer understand how to fix violations from the error messages?"
+4. "Did I test the failure cases as thoroughly as the success cases?"
+5. "Did I complete STEP 6 cleanup and verify no test artifacts remain?"
 
 description:
 globs:
