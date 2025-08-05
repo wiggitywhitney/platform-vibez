@@ -778,3 +778,8 @@ Before presenting any policy to the user, ask yourself:
 3. "Would a developer understand how to fix violations from the error messages?"
 4. "Did I test the failure cases as thoroughly as the success cases?"
 5. "Did I complete STEP 6 cleanup and verify no test artifacts remain?"
+
+description:
+globs:
+alwaysApply: false
+---
