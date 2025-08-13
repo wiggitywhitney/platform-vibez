@@ -12,37 +12,122 @@
 
 1. **"What specific behavior or constraint should this policy enforce?"** (What should it check for or prevent?)
 
-2. **Dynamically discover and suggest relevant resources based on their requirement:**
-   - **Analyze their constraint** to understand what field/capability they're targeting:
-     - Container images → Look for resources with `.spec.containers[].image`, `.spec.template.spec.containers[].image`
-     - Resource limits → Look for resources with `.spec.containers[].resources`, `.spec.template.spec.containers[].resources`
-     - Labels/annotations → Look for resources with `.metadata.labels`, `.metadata.annotations`
-     - Storage → Look for resources with `.spec.volumes`, `.spec.volumeClaimTemplates`, `.spec.persistentVolumeClaimRetentionPolicy`
-     - Networking → Look for resources with `.spec.ports`, `.spec.selector`, `.spec.rules`
-     - Security → Look for resources with `.spec.securityContext`, `.spec.serviceAccountName`, `.spec.imagePullSecrets`
-     - Custom fields → Look for any field path they specify
-   - **Query the cluster** to discover ALL available resources:
-     ```bash
-     kubectl api-resources --verbs=list -o name
-     ```
-   - **Programmatically check** which resources actually have the relevant field structure by sampling existing resources or checking OpenAPI schemas
-   - **VALIDATION STEP**: Before creating the policy, use `kubectl explain` to verify field structure for EVERY resource you plan to include
-   - **Present complete findings**: "I found [X] resources in your cluster that have the relevant field structure: [complete list]"
-   - **If user said "ALL"**: Include every single matching resource immediately. Do NOT ask for subsets.
-   - **If user didn't specify scope**: Ask "Should the policy target all of them or a subset?"
-   - **Include both native and custom resources** (CRDs, operators, etc.) that match the field criteria
-   
-   **🔍 COMPREHENSIVE DISCOVERY COMMANDS:**
+2. **Comprehensive Schema Analysis (Zero Assumptions Approach):**
+
+   **🚨 CRITICAL: NEVER assume resource names, field names, or field structures. Analyze EVERY resource's complete schema.**
+
+   **Phase 1: Enumerate ALL Resources**
    ```bash
-   # Get all resource types and their Kind names
-   kubectl api-resources | grep "target-service" | awk '{print $NF}'
-   
-   # Verify field structure for each resource type
-   kubectl explain resource.spec.targetField --recursive | grep targetField
-   
-   # Count total resources to ensure complete coverage
-   kubectl api-resources | grep "target-service" | wc -l
+   # Get every single resource in the cluster - no filtering by name patterns
+   kubectl api-resources --verbs=list -o name > all_resources.txt
+   echo "Total resources to analyze: $(wc -l < all_resources.txt)"
    ```
+
+   **Phase 2: Complete Schema Extraction**
+   For EVERY SINGLE resource (no exceptions):
+   ```bash
+   while read resource; do
+     echo "=== ANALYZING: $resource ==="
+     
+     # Extract complete schema recursively
+     kubectl explain "$resource" --recursive > "schema_${resource//\//_}.txt" 2>/dev/null || echo "Schema unavailable"
+     
+     # Extract metadata schema (for annotations, labels)
+     kubectl explain "$resource.metadata" --recursive > "metadata_${resource//\//_}.txt" 2>/dev/null || echo "No metadata"
+     
+     # Extract status schema (constraint info might be in status)
+     kubectl explain "$resource.status" --recursive > "status_${resource//\//_}.txt" 2>/dev/null || echo "No status"
+     
+   done < all_resources.txt
+   ```
+
+   **Phase 3: Constraint Evaluation Against Every Schema**
+   For each constraint requirement, analyze EVERY resource schema:
+   ```bash
+   constraint_analysis() {
+     local user_constraint="$1"  # e.g., "us-east-1", "approved-registry", "required-label"
+     local constraint_type="$2"  # e.g., "region", "image", "label", "annotation"
+     
+     echo "Analyzing ALL schemas for constraint: $user_constraint (type: $constraint_type)"
+     
+     # Check every schema file for relevant fields
+     for schema_file in schema_*.txt metadata_*.txt status_*.txt; do
+       resource_name=$(echo "$schema_file" | sed 's/^[^_]*_//; s/\.txt$//' | tr '_' '/')
+       
+       echo "--- $resource_name ---"
+       
+       case "$constraint_type" in
+         "region")
+           # Look for ANY field that could contain region/zone/location information
+           grep -i -E "(region|zone|location|placement|availability|datacenter|geography)" "$schema_file" || echo "No location fields"
+           ;;
+         "image")
+           # Look for ANY field that could contain container images
+           grep -i -E "(image|container|registry|repository|tag)" "$schema_file" || echo "No image fields"
+           ;;
+         "label"|"annotation")
+           # Check if resource supports metadata
+           grep -E "(labels|annotations)" "$schema_file" || echo "No metadata support"
+           ;;
+         *)
+           # Generic constraint - search for user's exact terms and related concepts
+           grep -i "$user_constraint" "$schema_file" || echo "No direct matches"
+           # Add semantic analysis for related terms
+           ;;
+       esac
+     done
+   }
+   ```
+
+   **Phase 4: Sample Real Resources for Field Patterns**
+   ```bash
+   # For resources that might be relevant, sample actual instances
+   sample_resource_fields() {
+     local resource="$1"
+     
+     echo "Sampling real instances of $resource"
+     
+     # Get sample resources
+     kubectl get "$resource" -o yaml --limit=5 2>/dev/null > "sample_${resource//\//_}.yaml"
+     
+     if [ -s "sample_${resource//\//_}.yaml" ]; then
+       echo "Found real instances, analyzing field usage:"
+       
+       # Extract all field paths and values that match constraint
+       grep -i -E "(constraint-pattern)" "sample_${resource//\//_}.yaml" || echo "No constraint values found"
+     else
+       echo "No real instances found - will validate using schema only"
+     fi
+   }
+   ```
+
+   **Phase 5: Policy Coverage Decision Matrix**
+   Create explicit decisions for every resource:
+   ```bash
+   # Create decision matrix for every resource
+   echo "Resource,HasRelevantFields,FieldPaths,ValidationApproach,IncludeInPolicy,Reason" > coverage_matrix.csv
+   
+   while read resource; do
+     # Document decision for each resource based on schema analysis
+     echo "Analyzing $resource for inclusion..."
+   done < all_resources.txt
+   ```
+
+   **🚨 ZERO ASSUMPTION PRINCIPLES:**
+   1. **Never filter by resource name patterns** - analyze every single resource
+   2. **Never assume field names** - extract complete schemas and search semantically  
+   3. **Never assume field locations** - check spec, metadata, status, and all nested objects
+   4. **Never assume validation approaches** - discover what each resource actually supports
+   5. **Always sample real resources** - verify schema understanding with actual data
+   6. **Document every decision** - explicit reasoning for include/exclude choices
+
+   **MANDATORY COVERAGE VERIFICATION:**
+   - [ ] Every resource in cluster analyzed (0 skipped)
+   - [ ] Complete schema extracted for each resource
+   - [ ] Constraint relevance evaluated for each resource  
+   - [ ] Validation approach determined for each relevant resource
+   - [ ] Inclusion decision documented with justification
+   - [ ] Total coverage calculated and verified
 
 3. **"Are there any exceptions or special cases to consider?"** (Should it exclude certain namespaces, labels, etc.?)
 

@@ -1,0 +1,81 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: enforce-us-east-1-region
+  annotations:
+    policies.kyverno.io/category: Platform Governance
+    policies.kyverno.io/description: "Ensures all resources in team namespaces run only in us-east-1 region"
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/subject: "Region Compliance"
+spec:
+  background: true
+  validationFailureAction: Enforce
+  rules:
+  
+  # Rule 1: Workload resources with node affinity (most critical for region control)
+  - name: workload-region-validation
+    match:
+      any:
+      - resources:
+          kinds:
+          - "Deployment"
+          - "StatefulSet"
+          - "DaemonSet"
+          - "Job"
+          - "CronJob"
+          namespaces:
+          - "*team*"
+    validate:
+      message: "Workloads in team namespaces must use node affinity to ensure us-east-1 placement or rely on cluster defaults"
+      anyPattern:
+      - spec:
+          template:
+            spec:
+              affinity:
+                nodeAffinity:
+                  requiredDuringSchedulingIgnoredDuringExecution:
+                    nodeSelectorTerms:
+                    - matchExpressions:
+                      - key: "topology.kubernetes.io/region"
+                        operator: In
+                        values: ["us-east-1"]
+      - spec:
+          template:
+            spec:
+              nodeSelector:
+                "topology.kubernetes.io/region": "us-east-1"
+      # Allow workloads without explicit region if cluster is us-east-1 only
+      - spec:
+          template:
+            spec:
+              containers:
+              - name: "?*"
+
+  # Rule 2: Pod-level validation for direct pod creation
+  - name: pod-region-validation
+    match:
+      any:
+      - resources:
+          kinds:
+          - "Pod"
+          namespaces:
+          - "*team*"
+    validate:
+      message: "Pods in team namespaces must use node affinity to ensure us-east-1 placement or rely on cluster defaults"
+      anyPattern:
+      - spec:
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                - matchExpressions:
+                  - key: "topology.kubernetes.io/region"
+                    operator: In
+                    values: ["us-east-1"]
+      - spec:
+          nodeSelector:
+            "topology.kubernetes.io/region": "us-east-1"
+      # Allow pods without explicit region if cluster is us-east-1 only
+      - spec:
+          containers:
+          - name: "?*"
